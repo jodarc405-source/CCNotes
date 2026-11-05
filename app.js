@@ -114,7 +114,7 @@ function salvarNoLocalStorage() {
             activeTab,
             componentCounters
         };
-        localStorage.setItem('mignotes_qucs_suite_v4', JSON.stringify(payload));
+        localStorage.setItem('mignotes_suite_v4', JSON.stringify(payload));
     } catch (e) {
         console.warn('Erro ao salvar no localStorage:', e);
     }
@@ -122,7 +122,7 @@ function salvarNoLocalStorage() {
 
 function carregarDoLocalStorage() {
     try {
-        const raw = localStorage.getItem('mignotes_qucs_suite_v4') || localStorage.getItem('mignotes_data_qucs_v3') || localStorage.getItem('mignotes_data_v2');
+        const raw = localStorage.getItem('mignotes_suite_v4') || localStorage.getItem('mignotes_qucs_suite_v4') || localStorage.getItem('mignotes_data_qucs_v3') || localStorage.getItem('mignotes_data_v2');
         if (raw) {
             const data = JSON.parse(raw);
             if (data.notebooks) notebooks = data.notebooks;
@@ -849,29 +849,34 @@ window.addEventListener('pointerup', (e) => {
 // --------------------------------------------------------
 
 // ========================================================
-// Formatação Gramatical Inteligente para OCR (Item 1)
+// Formatação Gramatical Inteligente para OCR
+// Regras: 
+// 1. A primeira letra é sempre maiúscula (início de frase/parágrafo).
+// 2. Respeita normas gramaticais (nomes próprios, países, cientistas).
+// 3. O restante é estritamente minúsculo.
 // ========================================================
 function formatarTextoGramatical(texto) {
     if (!texto) return '';
-    // Converte tudo para minúsculas primeiro para garantir que o resto fica minúsculo
+    // Converte tudo para minúsculas primeiro para garantir que o resto fica estritamente minúsculo
     let s = texto.trim().toLowerCase();
 
-    // 1. Primeira letra de cada frase em maiúscula (início ou após . ! ? ou quebras de linha)
-    s = s.replace(/(^|[.!?]\s+|\n+)([a-záàâãéèêíïóôõöúç])/gu, (match, prefix, char) => {
+    // 1. Primeira letra de cada frase em maiúscula (início do texto, quebras de linha ou após . ! ?)
+    s = s.replace(/(^|[.!?\n]\s*)([a-záàâãéèêíïóôõöúç])/gu, (match, prefix, char) => {
         return prefix + char.toUpperCase();
     });
 
-    // 2. Nomes próprios, países, cidades e cientistas com maiúscula inicial
+    // 2. Nomes próprios, países, cidades e cientistas com maiúscula inicial obrigatória
     const properNouns = [
-        'Portugal', 'Brasil', 'Espanha', 'França', 'Alemanha', 'Itália', 'Inglaterra',
-        'Lisboa', 'Porto', 'Coimbra', 'Braga', 'Aveiro', 'Faro', 'Madrid', 'Paris', 'Londres',
-        'Europa', 'América', 'Ásia', 'África', 'Oceania',
-        'Maria', 'João', 'José', 'Manuel', 'António', 'Ana', 'Carlos', 'Pedro', 'Miguel',
-        'Tiago', 'Diogo', 'Rui', 'Luís', 'André', 'Jorge', 'Francisco', 'Paulo', 'Inês',
-        'Mariana', 'Beatriz', 'Carolina', 'Gonçalo', 'Bernardo', 'Rita', 'Sofia',
-        'Ohm', 'Kirchhoff', 'Thévenin', 'Thevenin', 'Norton', 'Ampère', 'Ampere', 'Volt', 'Volta',
+        'Portugal', 'Brasil', 'Espanha', 'Franca', 'França', 'Alemanha', 'Italia', 'Itália', 'Inglaterra', 'Reino Unido',
+        'Lisboa', 'Porto', 'Coimbra', 'Braga', 'Aveiro', 'Faro', 'Setubal', 'Setúbal', 'Viseu', 'Leiria', 'Evora', 'Évora', 'Guimarães',
+        'Madrid', 'Paris', 'Londres', 'Berlim', 'Roma', 'Washington',
+        'Europa', 'America', 'América', 'Asia', 'Ásia', 'Africa', 'África', 'Oceania',
+        'Maria', 'Joao', 'João', 'Jose', 'José', 'Manuel', 'Antonio', 'António', 'Ana', 'Carlos', 'Pedro', 'Miguel',
+        'Tiago', 'Diogo', 'Rui', 'Luis', 'Luís', 'Andre', 'André', 'Jorge', 'Francisco', 'Paulo', 'Ines', 'Inês',
+        'Mariana', 'Beatriz', 'Carolina', 'Goncalo', 'Gonçalo', 'Bernardo', 'Rita', 'Sofia',
+        'Ohm', 'Kirchhoff', 'Thevenin', 'Thévenin', 'Norton', 'Ampere', 'Ampère', 'Volt', 'Volta',
         'Coulomb', 'Faraday', 'Henry', 'Watt', 'Hertz', 'Fourier', 'Laplace', 'Maxwell', 'Gauss',
-        'Joule', 'Tesla', 'Siemens', 'Weber', 'Nyquist', 'Bode'
+        'Joule', 'Tesla', 'Siemens', 'Weber', 'Nyquist', 'Bode', 'Newton', 'Einstein'
     ];
 
     properNouns.forEach(name => {
@@ -897,8 +902,8 @@ function formatarTextoGramatical(texto) {
     for (const [k, v] of Object.entries(unitsAndAcronyms)) {
         s = s.replace(new RegExp('\\b' + k + '\\b', 'g'), v);
     }
-    // Componentes numerados (r1 -> R1, c1 -> C1, l1 -> L1, v1 -> V1, etc.)
-    s = s.replace(/\b([rclvidq])(\d+)\b/gi, (m, letter, num) => letter.toUpperCase() + num);
+    // Componentes numerados (r1 -> R1, c1 -> C1, l1 -> L1, v1 -> V1, u1 -> U1, etc.)
+    s = s.replace(/\b([rclvidqu])(\d+)\b/gi, (m, letter, num) => letter.toUpperCase() + num);
 
     return s;
 }
@@ -974,42 +979,66 @@ async function reconhecerEscritaManuscrita(strokes, bounds) {
         }
     });
 
-    // 1. Tentar Google Handwriting Input API (funciona no navegador do Chromebook)
+    // 1. Tentar Google Handwriting Input API (com endpoints redundantes e tempo de resposta otimizado)
     if (ink.length > 0) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const endpoints = [
+            'https://inputtools.google.com/request?ime=handwriting&app=mobilesearch',
+            'https://www.google.com.tw/inputtools/request?ime=handwriting&app=mobilesearch'
+        ];
 
-            const res = await fetch('https://www.google.com.tw/inputtools/request?ime=handwriting&app=mobilesearch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    options: 'enable_pre_space',
-                    requests: [{
-                        writing_guide: {
-                            writing_area_width: Math.max(100, Math.round(bounds.maxX - bounds.minX)),
-                            writing_area_height: Math.max(60, Math.round(bounds.maxY - bounds.minY))
-                        },
-                        ink: ink,
-                        language: 'pt'
-                    }]
-                }),
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
+        for (let ep of endpoints) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data[1] && data[1][0] && data[1][0][1] && data[1][0][1].length > 0) {
-                    const cand = data[1][0][1][0];
-                    if (cand && cand.trim()) return cand.trim();
+                const res = await fetch(ep, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        options: 'enable_pre_space',
+                        requests: [{
+                            writing_guide: {
+                                writing_area_width: Math.max(100, Math.round(bounds.maxX - bounds.minX)),
+                                writing_area_height: Math.max(60, Math.round(bounds.maxY - bounds.minY))
+                            },
+                            ink: ink,
+                            language: 'pt'
+                        }]
+                    }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data[1] && data[1][0] && data[1][0][1] && data[1][0][1].length > 0) {
+                        const cand = data[1][0][1][0];
+                        if (cand && cand.trim()) return cand.trim();
+                    }
                 }
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }
     }
 
-    // 2. Fallback inteligente sem fórmulas aleatórias
+    // 2. Fallback inteligente baseado na geometria dos traços
     return extrairTextoFielDosTracos(strokes, bounds);
+}
+
+function toggleDrawingToolbar() {
+    const tb = document.getElementById('toolbar');
+    const ws = document.querySelector('.workspace');
+    if (!tb) return;
+    tb.classList.toggle('toolbar-hidden');
+    if (ws) ws.classList.toggle('toolbar-hidden');
+    const btn = document.getElementById('btn-toggle-tb');
+    if (btn) {
+        const isHidden = tb.classList.contains('toolbar-hidden');
+        btn.innerHTML = isHidden 
+            ? `<i data-lucide="maximize-2"></i>` 
+            : `<i data-lucide="minimize-2"></i>`;
+        btn.title = isHidden ? 'Mostrar Barra de Desenho' : 'Ocultar Barra de Desenho';
+        if (window.lucide) lucide.createIcons();
+    }
 }
 
 function toggleOCRMode() {
@@ -1147,7 +1176,7 @@ function criarBlocoTexto(texto, left, top, fontSize = 18, rotation = 0) {
     function renderContent(val) {
         try {
             if (window.katex && (val.includes('\\') || val.includes('=') || val.includes('^') || val.includes('_') || val.includes('\\frac') || val.includes('\\cdot') || val.includes('\\sqrt'))) {
-                katex.render(val, mathSpan, { displayMode: true, throwOnError: false });
+                katex.render(val, mathSpan, { displayMode: true, output: 'html', throwOnError: false });
             } else {
                 mathSpan.innerText = val;
             }
@@ -1241,7 +1270,7 @@ function editTextBlock(target) {
         const span = block.querySelector('.math-content');
         try {
             if (window.katex && (novo.includes('\\') || novo.includes('=') || novo.includes('^') || novo.includes('_') || novo.includes('\\frac') || novo.includes('\\cdot') || novo.includes('\\sqrt'))) {
-                katex.render(novo, span, { displayMode: true, throwOnError: false });
+                katex.render(novo, span, { displayMode: true, output: 'html', throwOnError: false });
             } else {
                 span.innerText = novo;
             }
@@ -1633,40 +1662,40 @@ function limparFolha() {
 // Ordenadas estritamente pela sua importância em Engenharia Eletrotécnica
 // --------------------------------------------------------
 const ELECTRICAL_FORMULAS = [
-    // 1. Leis Fundamentais (Divididas individualmente estilo escolar)
-    { cat: "1. LEIS FUNDAMENTAIS", name: "Lei de Ohm (Tensão)", tex: "V = R \\cdot I" },
-    { cat: "1. LEIS FUNDAMENTAIS", name: "Lei de Ohm (Corrente)", tex: "I = \\frac{V}{R}" },
-    { cat: "1. LEIS FUNDAMENTAIS", name: "Lei de Ohm (Resistência)", tex: "R = \\frac{V}{I}" },
-    { cat: "1. LEIS FUNDAMENTAIS", name: "Potência Elétrica (Base)", tex: "P = V \\cdot I" },
+    // 1. Leis Fundamentais (Divididas individualmente estilo escolar com U para Tensão)
+    { cat: "1. LEIS FUNDAMENTAIS", name: "Lei de Ohm (Tensão)", tex: "U = R \\cdot I" },
+    { cat: "1. LEIS FUNDAMENTAIS", name: "Lei de Ohm (Corrente)", tex: "I = \\frac{U}{R}" },
+    { cat: "1. LEIS FUNDAMENTAIS", name: "Lei de Ohm (Resistência)", tex: "R = \\frac{U}{I}" },
+    { cat: "1. LEIS FUNDAMENTAIS", name: "Potência Elétrica (Base)", tex: "P = U \\cdot I" },
     { cat: "1. LEIS FUNDAMENTAIS", name: "Potência (Efeito Joule)", tex: "P = R \\cdot I^2" },
-    { cat: "1. LEIS FUNDAMENTAIS", name: "Potência (Tensão e Resistência)", tex: "P = \\frac{V^2}{R}" },
+    { cat: "1. LEIS FUNDAMENTAIS", name: "Potência (Tensão e Resistência)", tex: "P = \\frac{U^2}{R}" },
     { cat: "1. LEIS FUNDAMENTAIS", name: "Energia Elétrica", tex: "E = P \\cdot \\Delta t" },
     { cat: "1. LEIS FUNDAMENTAIS", name: "1ª Lei de Kirchhoff (Nós - KCL)", tex: "\\sum I_{in} = \\sum I_{out}" },
-    { cat: "1. LEIS FUNDAMENTAIS", name: "2ª Lei de Kirchhoff (Malhas - KVL)", tex: "\\sum V_k = 0" },
+    { cat: "1. LEIS FUNDAMENTAIS", name: "2ª Lei de Kirchhoff (Malhas - KVL)", tex: "\\sum U_k = 0" },
 
     // 2. Circuitos DC e Divisores
     { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Resistores em Série", tex: "R_{eq} = R_1 + R_2 + \\dots" },
     { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Resistores em Paralelo (2R)", tex: "R_{eq} = \\frac{R_1 \\cdot R_2}{R_1 + R_2}" },
     { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Resistores em Paralelo (Geral)", tex: "\\frac{1}{R_{eq}} = \\frac{1}{R_1} + \\frac{1}{R_2} + \\dots" },
-    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Divisor de Tensão", tex: "V_{out} = V_{in} \\cdot \\frac{R_2}{R_1 + R_2}" },
+    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Divisor de Tensão", tex: "U_{out} = U_{in} \\cdot \\frac{R_2}{R_1 + R_2}" },
     { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Divisor de Corrente (I1)", tex: "I_1 = I_{total} \\cdot \\frac{R_2}{R_1 + R_2}" },
     { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Divisor de Corrente (I2)", tex: "I_2 = I_{total} \\cdot \\frac{R_1}{R_1 + R_2}" },
-    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Tensão de Thévenin", tex: "V_{th} = V_{oc}" },
-    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Resistência de Thévenin", tex: "R_{th} = \\frac{V_{oc}}{I_{sc}}" },
-    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Corrente de Norton", tex: "I_N = \\frac{V_{th}}{R_{th}}" },
+    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Tensão de Thévenin", tex: "U_{th} = U_{oc}" },
+    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Resistência de Thévenin", tex: "R_{th} = \\frac{U_{oc}}{I_{sc}}" },
+    { cat: "2. CIRCUITOS DC & ASSOCIAÇÃO", name: "Corrente de Norton", tex: "I_N = \\frac{U_{th}}{R_{th}}" },
 
     // 3. Capacitores e Indutores
-    { cat: "3. CAPACITORES & INDUTORES", name: "Carga no Capacitor", tex: "Q = C \\cdot V" },
-    { cat: "3. CAPACITORES & INDUTORES", name: "Capacitância", tex: "C = \\frac{Q}{V}" },
-    { cat: "3. CAPACITORES & INDUTORES", name: "Energia no Capacitor", tex: "E = \\frac{1}{2} C \\cdot V^2" },
-    { cat: "3. CAPACITORES & INDUTORES", name: "Corrente no Capacitor", tex: "i(t) = C \\cdot \\frac{dv}{dt}" },
+    { cat: "3. CAPACITORES & INDUTORES", name: "Carga no Capacitor", tex: "Q = C \\cdot U" },
+    { cat: "3. CAPACITORES & INDUTORES", name: "Capacitância", tex: "C = \\frac{Q}{U}" },
+    { cat: "3. CAPACITORES & INDUTORES", name: "Energia no Capacitor", tex: "E = \\frac{1}{2} C \\cdot U^2" },
+    { cat: "3. CAPACITORES & INDUTORES", name: "Corrente no Capacitor", tex: "i(t) = C \\cdot \\frac{du}{dt}" },
     { cat: "3. CAPACITORES & INDUTORES", name: "Capacitores em Paralelo", tex: "C_{eq} = C_1 + C_2 + \\dots" },
     { cat: "3. CAPACITORES & INDUTORES", name: "Capacitores em Série (2C)", tex: "C_{eq} = \\frac{C_1 \\cdot C_2}{C_1 + C_2}" },
-    { cat: "3. CAPACITORES & INDUTORES", name: "Tensão no Indutor", tex: "v(t) = L \\cdot \\frac{di}{dt}" },
+    { cat: "3. CAPACITORES & INDUTORES", name: "Tensão no Indutor", tex: "u(t) = L \\cdot \\frac{di}{dt}" },
     { cat: "3. CAPACITORES & INDUTORES", name: "Energia no Indutor", tex: "E = \\frac{1}{2} L \\cdot I^2" },
     { cat: "3. CAPACITORES & INDUTORES", name: "Constante de Tempo RC", tex: "\\tau = R \\cdot C" },
-    { cat: "3. CAPACITORES & INDUTORES", name: "Carga RC no Tempo", tex: "v(t) = V_{max} \\left(1 - e^{-\\frac{t}{\\tau}}\\right)" },
-    { cat: "3. CAPACITORES & INDUTORES", name: "Descarga RC no Tempo", tex: "v(t) = V_0 \\cdot e^{-\\frac{t}{\\tau}}" },
+    { cat: "3. CAPACITORES & INDUTORES", name: "Carga RC no Tempo", tex: "u(t) = U_{max} \\left(1 - e^{-\\frac{t}{\\tau}}\\right)" },
+    { cat: "3. CAPACITORES & INDUTORES", name: "Descarga RC no Tempo", tex: "u(t) = U_0 \\cdot e^{-\\frac{t}{\\tau}}" },
     { cat: "3. CAPACITORES & INDUTORES", name: "Constante de Tempo RL", tex: "\\tau = \\frac{L}{R}" },
 
     // 4. Circuitos AC, Fasores e Ressonância
@@ -1675,24 +1704,24 @@ const ELECTRICAL_FORMULAS = [
     { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Impedância RLC Série", tex: "Z = \\sqrt{R^2 + (X_L - X_C)^2}" },
     { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Frequência de Ressonância", tex: "f_0 = \\frac{1}{2\\pi\\sqrt{L \\cdot C}}" },
     { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Ângulo de Fase", tex: "\\tan\\phi = \\frac{X_L - X_C}{R}" },
-    { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Potência Ativa (P)", tex: "P = V \\cdot I \\cdot \\cos\\phi" },
-    { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Potência Reativa (Q)", tex: "Q = V \\cdot I \\cdot \\sin\\phi" },
-    { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Potência Aparente (S)", tex: "S = V \\cdot I" },
+    { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Potência Ativa (P)", tex: "P = U \\cdot I \\cdot \\cos\\phi" },
+    { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Potência Reativa (Q)", tex: "Q = U \\cdot I \\cdot \\sin\\phi" },
+    { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Potência Aparente (S)", tex: "S = U \\cdot I" },
     { cat: "4. CIRCUITOS AC & IMPEDÂNCIA", name: "Fator de Potência", tex: "\\cos\\phi = \\frac{P}{S}" },
 
     // 5. Filtros e Resposta em Frequência
     { cat: "5. FILTROS & DECIBÉIS", name: "Frequência de Corte RC", tex: "f_c = \\frac{1}{2\\pi R C}" },
     { cat: "5. FILTROS & DECIBÉIS", name: "Frequência de Corte RL", tex: "f_c = \\frac{R}{2\\pi L}" },
-    { cat: "5. FILTROS & DECIBÉIS", name: "Ganho em Tensão (dB)", tex: "G_{dB} = 20 \\log_{10}\\left(\\frac{V_{out}}{V_{in}}\\right)" },
-    { cat: "5. FILTROS & DECIBÉIS", name: "Ganho em Potência (dB)", tex: "G_{dB} = 10 \\log_{10}\\left(\\frac{P_{out}}{P_{in}}\right)" },
+    { cat: "5. FILTROS & DECIBÉIS", name: "Ganho em Tensão (dB)", tex: "G_{dB} = 20 \\log_{10}\\left(\\frac{U_{out}}{U_{in}}\\right)" },
+    { cat: "5. FILTROS & DECIBÉIS", name: "Ganho em Potência (dB)", tex: "G_{dB} = 10 \\log_{10}\\left(\\frac{P_{out}}{P_{in}}\\right)" },
 
     // 6. Semicondutores e Amplificadores
-    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Equação do Díodo (Shockley)", tex: "I_D = I_S \\left( e^{\\frac{V_D}{n V_T}} - 1 \\right)" },
+    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Equação do Díodo (Shockley)", tex: "I_D = I_S \\left( e^{\\frac{U_D}{n U_T}} - 1 \\right)" },
     { cat: "6. SEMICONDUTORES & OP-AMP", name: "Ganho de Corrente BJT", tex: "I_C = \\beta \\cdot I_B" },
     { cat: "6. SEMICONDUTORES & OP-AMP", name: "Corrente de Emissor BJT", tex: "I_E = I_C + I_B" },
-    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Op-Amp Inversor", tex: "V_{out} = -V_{in} \\cdot \\frac{R_f}{R_{in}}" },
-    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Op-Amp Não-Inversor", tex: "V_{out} = V_{in} \\left( 1 + \\frac{R_f}{R_1} \\right)" },
-    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Op-Amp Buffer", tex: "V_{out} = V_{in}" }
+    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Op-Amp Inversor", tex: "U_{out} = -U_{in} \\cdot \\frac{R_f}{R_{in}}" },
+    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Op-Amp Não-Inversor", tex: "U_{out} = U_{in} \\left( 1 + \\frac{R_f}{R_1} \\right)" },
+    { cat: "6. SEMICONDUTORES & OP-AMP", name: "Op-Amp Buffer", tex: "U_{out} = U_{in}" }
 ];
 
 const WORD_SYMBOLS = [
@@ -1801,7 +1830,7 @@ function renderWordFormulas() {
             <span style="font-size:11px; color:#38bdf8; font-weight:700;">+ Inserir</span>
         `;
         const texSpan = card.querySelector('.formula-tex');
-        try { katex.render(f.tex, texSpan, { throwOnError: false }); } catch(e) { texSpan.innerText = f.tex; }
+        try { katex.render(f.tex, texSpan, { output: 'html', throwOnError: false }); } catch(e) { texSpan.innerText = f.tex; }
 
         card.onclick = () => {
             if (wordSymbolsTarget === 'ccnotes') {
@@ -2107,8 +2136,20 @@ function executePlacementAt(x, y) {
 
 function renderCadernosSidebar() {
     const lista = document.getElementById('cadernos-lista');
+    const selectAtivo = document.getElementById('selectCadernoAtivo');
     if (!lista) return;
     lista.innerHTML = '';
+
+    if (selectAtivo) {
+        selectAtivo.innerHTML = '';
+        for (let cad in notebooks) {
+            const opt = document.createElement('option');
+            opt.value = cad;
+            opt.textContent = cad;
+            if (cad === activeNotebook) opt.selected = true;
+            selectAtivo.appendChild(opt);
+        }
+    }
 
     for (let cad in notebooks) {
         const card = document.createElement('div');
@@ -2117,7 +2158,11 @@ function renderCadernosSidebar() {
         const tabs = (notebooks[cad] && Array.isArray(notebooks[cad].tabs)) ? notebooks[cad].tabs : ["Teoria", "Exercícios"];
         let tabsHTML = '';
         tabs.forEach(tab => {
-            tabsHTML += `<span class="tab-chip ${cad === activeNotebook && tab === activeTab ? 'active' : ''}" onclick="event.stopPropagation(); carregarPagina('${cad}', '${tab}', 0); renderCadernosSidebar();">${tab}</span>`;
+            const isTabActive = (cad === activeNotebook && tab === activeTab);
+            const delBtn = tabs.length > 1
+                ? `<button class="tab-del-btn" onclick="event.stopPropagation(); removerAba('${cad}', '${tab}')" title="Apagar separador ${tab}">✕</button>`
+                : '';
+            tabsHTML += `<span class="tab-chip ${isTabActive ? 'active' : ''}" onclick="event.stopPropagation(); carregarPagina('${cad}', '${tab}', 0); renderCadernosSidebar();">${tab}${delBtn}</span>`;
         });
 
         card.innerHTML = `
@@ -2132,7 +2177,10 @@ function renderCadernosSidebar() {
                     </svg>
                     <strong>${cad}</strong>
                 </span>
-                <span style="font-size:11px; cursor:pointer; color:#38bdf8; font-weight:700;" onclick="event.stopPropagation(); adicionarAba('${cad}')" title="Adicionar Separador">+ Tab</span>
+                <span style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:11px; cursor:pointer; color:#38bdf8; font-weight:700;" onclick="event.stopPropagation(); adicionarAba('${cad}')" title="Adicionar Separador">+ Tab</span>
+                    <button class="nb-remove-btn" onclick="event.stopPropagation(); tirarCadernoDaBarra('${cad}')" title="Tirar da barra lateral / Organizar">✕</button>
+                </span>
             </div>
             <div class="notebook-tabs">${tabsHTML}</div>
         `;
@@ -2144,8 +2192,50 @@ function renderCadernosSidebar() {
     if (window.lucide) lucide.createIcons();
 }
 
+function selecionarCadernoDropdown(cad) {
+    if (!notebooks[cad]) return;
+    const tabs = (notebooks[cad] && Array.isArray(notebooks[cad].tabs)) ? notebooks[cad].tabs : ["Teoria", "Exercícios"];
+    const tabToLoad = tabs.includes(activeTab) ? activeTab : tabs[0];
+    carregarPagina(cad, tabToLoad, 0);
+    renderCadernosSidebar();
+}
+
+function tirarCadernoDaBarra(cad) {
+    const keys = Object.keys(notebooks);
+    if (keys.length <= 1) {
+        alert("Deve manter pelo menos um caderno ativo na barra lateral.");
+        return;
+    }
+    if (!confirm(`Deseja retirar o caderno "${cad}" da barra lateral?`)) return;
+    delete notebooks[cad];
+    if (cad === activeNotebook) {
+        const remaining = Object.keys(notebooks)[0];
+        const tabs = notebooks[remaining].tabs || ["Teoria", "Exercícios"];
+        carregarPagina(remaining, tabs[0], 0);
+    }
+    renderCadernosSidebar();
+    salvarNoLocalStorage();
+}
+
+function removerAba(cad, tab) {
+    if (!notebooks[cad] || !notebooks[cad].tabs) return;
+    if (notebooks[cad].tabs.length <= 1) {
+        alert("O caderno deve ter pelo menos um separador.");
+        return;
+    }
+    if (!confirm(`Tem a certeza que deseja apagar o separador "${tab}" e todo o seu conteúdo?`)) return;
+    notebooks[cad].tabs = notebooks[cad].tabs.filter(t => t !== tab);
+    delete notebooks[cad][tab];
+    if (activeNotebook === cad && activeTab === tab) {
+        const nextTab = notebooks[cad].tabs[0];
+        carregarPagina(cad, nextTab, 0);
+    }
+    renderCadernosSidebar();
+    salvarNoLocalStorage();
+}
+
 // ========================================================
-// STUDIO CCnotes: Biblioteca Completa das Imagens do Qucs.exe
+// STUDIO CCnotes: Biblioteca Completa de Componentes e Símbolos de Circuito
 // (Componentes Concentrados, Fontes, Sondas, Linhas de Transmissão e Semicondutores)
 // ========================================================
 const CC_GRID = 20;
@@ -4131,35 +4221,37 @@ function ccRenderAll() {
         ccSvgEl('circle', { cx: x, cy: y, r: 4.5, fill: '#111827' }, J);
     });
 
-    // Render de Anotações e Fórmulas no CCnotes
+    // Render de Anotações e Fórmulas no CCnotes (KaTeX Escolar Limpo e Escalável)
     (ccState.annotations || []).forEach(ann => {
         const isSel = (ccSelectedAnnotation?.id === ann.id);
+        const fSize = ann.fontSize || 18;
         const fo = document.createElementNS(CC_NS, 'foreignObject');
         fo.setAttribute('x', ann.x);
         fo.setAttribute('y', ann.y);
-        fo.setAttribute('width', '280');
-        fo.setAttribute('height', '70');
+        fo.setAttribute('width', Math.max(220, fSize * 10));
+        fo.setAttribute('height', Math.max(50, fSize * 2.5));
         fo.style.overflow = 'visible';
         fo.style.cursor = 'move';
 
         const div = document.createElement('div');
+        div.className = 'cc-annotation-math';
         div.style.cssText = `
             display: inline-flex;
             align-items: center;
-            padding: 4px 8px;
+            padding: 3px 6px;
             background: ${isSel ? 'rgba(56, 189, 248, 0.15)' : 'transparent'};
-            border: ${isSel ? '1px dashed #0284c7' : '1px solid transparent'};
+            border: ${isSel ? '1.5px dashed #0284c7' : '1px solid transparent'};
             border-radius: 4px;
             color: #0369a1;
-            font-size: 16px;
+            font-size: ${fSize}px;
             font-weight: 600;
             user-select: none;
             white-space: nowrap;
         `;
 
         try {
-            if (window.katex && (ann.tex.includes('\\') || ann.tex.includes('^') || ann.tex.includes('_') || ann.tex.includes('{'))) {
-                katex.render(ann.tex, div, { throwOnError: false });
+            if (window.katex && (ann.tex.includes('\\') || ann.tex.includes('^') || ann.tex.includes('_') || ann.tex.includes('{') || ann.tex.includes('=') || ann.tex.includes('/'))) {
+                katex.render(ann.tex, div, { output: 'html', throwOnError: false });
             } else {
                 div.textContent = ann.tex;
             }
@@ -4173,6 +4265,7 @@ function ccRenderAll() {
             if (ccTool === 'eraser') {
                 e.stopPropagation();
                 ccState.annotations = ccState.annotations.filter(a => a !== ann);
+                if (ccSelectedAnnotation === ann) ccSelectedAnnotation = null;
                 ccRenderAll();
                 return;
             }
@@ -4181,6 +4274,8 @@ function ccRenderAll() {
                 ccSelectedAnnotation = ann;
                 ccSelectedPart = null;
                 ccSelectedWire = null;
+                const sizeInput = document.getElementById('ccPartSizeInput');
+                if (sizeInput) sizeInput.value = fSize;
                 const pt = ccPos(e);
                 ccDrag = {
                     annotation: ann,
@@ -4309,55 +4404,6 @@ function ccRenderAll() {
             ccToggleEditLabel();
         });
     });
-
-    // Render de Anotações Técnicas de Fórmulas no CCnotes (Ponto 5 - KaTeX Real Escolar)
-    (ccState.annotations || []).forEach(ann => {
-        const fo = ccSvgEl('foreignObject', {
-            x: ann.x,
-            y: ann.y - 18,
-            width: '240',
-            height: '55',
-            cursor: 'move',
-            style: 'overflow: visible;'
-        }, A);
-
-        const div = document.createElement('div');
-        div.className = 'cc-annotation-math';
-        div.style.color = '#0284c7';
-        div.style.fontSize = '14px';
-        div.style.fontWeight = 'bold';
-        div.style.userSelect = 'none';
-
-        try {
-            if (window.katex && (ann.tex.includes('\\') || ann.tex.includes('=') || ann.tex.includes('/') || ann.tex.includes('^'))) {
-                katex.render(ann.tex, div, { displayMode: true, throwOnError: false });
-            } else {
-                div.textContent = ann.tex;
-            }
-        } catch(e) {
-            div.textContent = ann.tex;
-        }
-        fo.appendChild(div);
-
-        fo.addEventListener('pointerdown', (e) => {
-            if (ccTool === 'eraser') {
-                e.stopPropagation();
-                ccState.annotations = ccState.annotations.filter(x => x !== ann);
-                ccRenderAll();
-                return;
-            }
-            if (ccTool === 'select') {
-                e.stopPropagation();
-                const pt = ccPos(e);
-                ccDrag = {
-                    annotation: ann,
-                    dx: ann.x - pt.x,
-                    dy: ann.y - pt.y
-                };
-                document.getElementById('ccSvgCanvas').setPointerCapture(e.pointerId);
-            }
-        });
-    });
 }
 
 function ccPos(e) {
@@ -4371,7 +4417,7 @@ function ccPos(e) {
 
 
 // ========================================================
-// CCnotes Qucs Category Filter, Search & Accordion
+// CCnotes Category Filter, Search & Accordion
 // ========================================================
 function ccFilterCategory(catId) {
     const sections = document.querySelectorAll('.cc-cat-section');
@@ -4480,9 +4526,16 @@ function ccSetTool(t) {
 
 function ccSetPartSizeFromInput(val) {
     const s = parseInt(val) || 30;
-    const clamped = Math.max(15, Math.min(200, s));
+    const clamped = Math.max(10, Math.min(200, s));
     const input = document.getElementById('ccPartSizeInput');
     if (input) input.value = clamped;
+
+    // Se estiver selecionada uma anotação, fórmula ou símbolo, ajusta a escala deste elemento
+    if (ccSelectedAnnotation) {
+        ccSelectedAnnotation.fontSize = clamped;
+        ccRenderAll();
+        return;
+    }
 
     if (ccSelectedPart) {
         const oldTerms = ccGetPartAbsoluteTerminals(ccSelectedPart);
@@ -4507,6 +4560,12 @@ function ccSetPartSizeFromInput(val) {
         });
         ccRenderAll();
     }
+}
+
+function ccStepPartSize(delta) {
+    const input = document.getElementById('ccPartSizeInput');
+    const cur = parseInt(input ? input.value : 30) || 30;
+    ccSetPartSizeFromInput(cur + delta);
 }
 
 function ccResetPartSize30() {
@@ -4535,6 +4594,42 @@ function ccToggleDimMode() {
     ccRenderAll();
 }
 
+function ccFormatComponentLabel(part, text) {
+    if (!text) return '';
+    let t = text.trim();
+    if (!part) return t;
+
+    const sym = (part.symbol || '').toLowerCase();
+    const originalLabel = (part.label || '').trim();
+
+    const isResistor = sym.includes('res') || sym === 'r' || originalLabel.includes('Ω') || /^[rR]\d*/.test(t);
+    const isVoltage = sym.includes('volt') || sym.includes('vdc') || sym.includes('vac') || sym.includes('source') || sym.includes('battery') || originalLabel.endsWith('V') || /^[vVuU]\d*/.test(t);
+    const isCapacitor = sym.includes('cap') || sym === 'c' || originalLabel.endsWith('F') || /^[cC]\d*/.test(t);
+    const isInductor = sym.includes('ind') || sym === 'l' || originalLabel.endsWith('H') || /^[lL]\d*/.test(t);
+
+    if (isResistor) {
+        // Converte K para k e limpa variações prévias de ohm
+        t = t.replace(/\s*(ohm|ohms|kohm|mohm|Ω|kΩ|MΩ)\s*$/gi, '');
+        t = t.replace(/K$/, 'k');
+        return t + 'Ω';
+    } else if (isVoltage) {
+        t = t.replace(/\s*(v|mv|kv|volts?)\s*$/gi, '');
+        return t + 'V';
+    } else if (isCapacitor) {
+        if (!/(f|µf|uf|nf|pf)$/i.test(t)) {
+            t = t.replace(/\s*f\s*$/gi, '');
+            t = t.replace(/u$/, 'µ');
+            return t + 'F';
+        }
+    } else if (isInductor) {
+        if (!/(h|mh|µh|uh)$/i.test(t)) {
+            t = t.replace(/\s*h\s*$/gi, '');
+            return t + 'H';
+        }
+    }
+    return t;
+}
+
 function ccToggleEditLabel() {
     if (!ccSelectedPart) return;
     const input = document.getElementById('ccInlineLabelInput');
@@ -4545,11 +4640,12 @@ function ccToggleEditLabel() {
     if (ccIsWritingLabel) {
         ccIsWritingLabel = false;
         btn.classList.remove('active-writing');
-        txt.innerText = ccSelectedPart.label ? `Legenda: ${ccSelectedPart.label}` : 'Escrever Legenda';
+        const formatted = ccFormatComponentLabel(ccSelectedPart, input.value.trim());
+        ccSelectedPart.label = formatted;
+        txt.innerText = formatted ? `Legenda: ${formatted}` : 'Escrever Legenda';
         icon.setAttribute('data-lucide', 'edit-3');
         if (window.lucide) lucide.createIcons();
 
-        ccSelectedPart.label = input.value.trim();
         input.style.display = 'none';
         ccRenderAll();
     } else {
@@ -4642,6 +4738,14 @@ function ccClearCircuit() {
 const ccSvg = document.getElementById('ccSvgCanvas');
 
 ccSvg.addEventListener('pointerdown', (e) => {
+    // Rejeição rigorosa de palma e toque com a mão: só permite caneta stylus (pen) ou rato/touchpad (mouse) para inserir componentes e traçar fios
+    if (ccTool === 'part' && ccSelectedSymbol && e.pointerType === 'touch') {
+        return;
+    }
+    if (ccTool === 'wire' && e.pointerType === 'touch') {
+        return;
+    }
+
     const p = ccPos(e);
     let sn = { x: ccSnap(p.x), y: ccSnap(p.y) };
 

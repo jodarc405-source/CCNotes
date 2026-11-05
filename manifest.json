@@ -1,7 +1,7 @@
 {
   "name": "CCNotes (Chromebook Edition)",
   "short_name": "CCNotes",
-  "description": "App de notas com proporção A4 e editor de circuitos elétricos Qucs CCnotes integrado",
+  "description": "App de notas com proporção A4 e editor de circuitos elétricos CCnotes integrado",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

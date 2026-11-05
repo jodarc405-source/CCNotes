@@ -1,0 +1,39 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+Apaga todo  o texto com referencia a qucs na aplicaçao.
+
+Quando passa para o formato vertical a caixa do zoom da página desaparece, altera para manter a caixa no formato vertical.
+
+O reconhecimento de texto OCR está a falhar nas letras, quero que no reconhecimento de texto respeite estas regras sendo as letras escritas pelo utilizador maiusculas ou minusculas: 1. A primeira letra é sempre maiscula ou inicio de paragrafos etc... + respeita as normas gramaticais, tais como nomes, paises, etc, o restante é sempre minusculas.
+
+Quero que a folha no modo vertical ocupe toda a tela e tenha só a barra de ferramenta no topo, na barra de menu reduz os botoes poe só icon ou icon + identificação minima, mete o Mignotes por cima e o chromebook por baixo para reduzir espaço, a barra de ferramentas e a barra de menu ficam as duas juntas ou uma hide e quando tocar no topo aparece ou com menu dropdown, arranja uma solução perfeita para otimizar a folha a ocupar a tela toda do chromebook á exceçao da barra que vai ficar.
+
+A barra lateral dos cadernos deve ter um menu dropdown para selecionar os caderno ativos em que estou a trabalhar e uma forma de os tirar da barra lateral quando quiser, o que quero é uma possibilidade de organiza-los, tenho uma opçao para criar separadores/abas + Tab mas nao tenho opçao de apagar estes separadores/abas cria a opçao de apagar.
+
+Nos componentes os simbolos de ohm e v predifinidos quando for para mudar a legenda, ao escrever por exemplo R2 1,2K, no fim deve permanecer o simbolo do ohm, este deve ser fixo.
+
+Ao desenhar circuitos a colocação de componentes na folha só deve ser sensivel á caneta stylus e não á mão, atualmente insere montes de componentes ao tocar com a mão na tela.
+
+Nas fórmulas da lei de ohm e potencia troca o V por U.
+
+Nas formulas na caixa aparece o texto em duplicado sobreposto.
+
+Na caixa de tamanho dos componentes poe as setas para aumentar e diminuir na horizontal do lado direito e esquerdo do tamanho.
+
+A função de aumentar e diminuir extende a formulas e simbolos.
+
+
+
+
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.

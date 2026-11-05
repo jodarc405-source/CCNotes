@@ -1,10 +1,22 @@
-/* Mignotes (Chromebook Edition) + CCnotes Qucs Simulator Suite */
+/* Mignotes (Chromebook Edition) + CCnotes Studio Suite */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
     user-select: none;
     -webkit-user-select: none;
+}
+
+/* Supressão de texto duplicado/sobreposto gerado pelo MathML do KaTeX */
+.katex-mathml {
+    display: none !important;
+    position: absolute !important;
+    clip: rect(1px, 1px, 1px, 1px) !important;
+    padding: 0 !important;
+    border: 0 !important;
+    height: 1px !important;
+    width: 1px !important;
+    overflow: hidden !important;
 }
 
 :root {
@@ -54,47 +66,70 @@ header {
     flex-shrink: 0;
 }
 
-.logo {
-    font-size: 1.15rem;
+/* Logo Compacto Empilhado: Mignotes por cima e Chromebook por baixo */
+.logo-stack {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.05;
+    user-select: none;
+    margin-right: 4px;
+}
+
+.logo-main {
+    font-size: 1.05rem;
     font-weight: 800;
     color: var(--accent);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     letter-spacing: -0.3px;
 }
 
-.badge {
-    font-size: 0.65rem;
-    background: #3b0764;
-    color: #e9d5ff;
-    padding: 2px 7px;
-    border-radius: 12px;
-    border: 1px solid #7e22ce;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+.logo-badge {
+    font-size: 7.5px;
+    font-weight: 800;
+    color: #93c5fd;
+    letter-spacing: 0.8px;
+    margin-left: 20px;
 }
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     overflow-x: auto;
+    flex-shrink: 0;
+}
+
+.btn-lbl {
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .btn-action {
     color: white;
     border: none;
-    padding: 6px 11px;
+    padding: 5px 9px;
     border-radius: 8px;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 11.5px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     transition: all 0.15s;
     white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-toggle-tb {
+    background: #334155;
+    border: 1px solid #64748b;
+}
+
+.btn-toggle-tb:hover {
+    background: #475569;
+    color: #38bdf8;
 }
 
 .btn-action:hover {
@@ -127,15 +162,16 @@ header {
 .btn-print { background: #475569; }
 .btn-clear { background: #dc2626; }
 
-/* Controles de Zoom Calibrados (Ponto 8) */
+/* Controles de Zoom Calibrados (Sempre visível em formato horizontal e vertical) */
 .zoom-controls-wrap {
-    display: inline-flex;
+    display: inline-flex !important;
     align-items: center;
     background: #1e293b;
     border: 1px solid #475569;
     border-radius: 8px;
     overflow: hidden;
-    height: 30px;
+    height: 28px;
+    flex-shrink: 0 !important;
 }
 
 .zoom-btn {
@@ -300,6 +336,84 @@ header {
     font-weight: 600;
 }
 
+.tab-del-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    margin-left: 2px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.12s, background 0.12s;
+}
+
+.tab-del-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.nb-remove-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #94a3b8;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.nb-remove-btn:hover {
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+}
+
+/* Menu Dropdown de Seleção de Caderno Ativo na Barra Lateral */
+.sidebar-dropdown-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 6px 8px;
+    margin-bottom: 2px;
+}
+
+.sidebar-mini-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.caderno-select {
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+    width: 100%;
+}
+
+.caderno-select:focus {
+    border-color: var(--accent);
+}
+
 /* Área de Trabalho e Folha */
 .workspace {
     flex: 1;
@@ -311,13 +425,18 @@ header {
     align-items: flex-start;
     padding: 70px 30px 60px 30px;
     touch-action: pan-x pan-y;
+    transition: padding 0.2s ease;
+}
+
+.workspace.toolbar-hidden {
+    padding-top: 15px;
 }
 
 /* Barra de Ferramentas Flutuante Superior */
 .toolbar {
     position: fixed;
-    top: 60px;
-    left: calc(50% + 125px);
+    top: 56px;
+    left: 50%;
     transform: translateX(-50%);
     z-index: 40;
     background: #111827;
@@ -329,6 +448,13 @@ header {
     gap: 5px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     max-width: 95vw;
+    transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+.toolbar.toolbar-hidden {
+    transform: translateX(-50%) translateY(-160%);
+    opacity: 0;
+    pointer-events: none;
 }
 
 .tool-group {
@@ -859,7 +985,7 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
 }
 
 /* =========================================================
-   MODAL / STUDIO CCnotes: Editor de Circuitos Qucs
+   MODAL / STUDIO CCnotes: Editor de Circuitos
    ========================================================= */
 .ccnotes-modal {
     display: none;
@@ -955,7 +1081,7 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
     flex-shrink: 0;
 }
 
-/* CCnotes Qucs Category Selector & Accordion */
+/* CCnotes Category Selector & Accordion */
 .palette-category-selector {
     position: sticky;
     top: 0;
@@ -1687,5 +1813,84 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
 .cc-size-reset-btn:hover {
     background: #0369a1;
     transform: scale(1.02);
+}
+
+.cc-size-step-btn {
+    background: #334155;
+    border: 1px solid #475569;
+    color: #e2e8f0;
+    font-size: 11px;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, color 0.12s;
+    user-select: none;
+}
+
+.cc-size-step-btn:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #38bdf8;
+}
+
+.cc-size-step-btn:active {
+    transform: scale(0.92);
+}
+
+/* Otimização para formato Vertical / Portrait no Chromebook */
+@media (orientation: portrait), (max-width: 900px) {
+    header {
+        padding: 0 6px;
+        gap: 4px;
+        height: 48px;
+    }
+
+    .app-layout {
+        height: calc(100vh - 48px);
+    }
+
+    .sidebar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 50;
+        transform: translateX(-100%);
+        box-shadow: 4px 0 25px rgba(0,0,0,0.8);
+    }
+
+    .sidebar:not(.collapsed) {
+        transform: translateX(0);
+    }
+
+    .toolbar {
+        top: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 4px 8px;
+        gap: 3px;
+        max-width: 98vw;
+    }
+
+    .toolbar.toolbar-hidden {
+        transform: translateX(-50%) translateY(-160%);
+    }
+
+    .workspace {
+        padding: 55px 4px 15px 4px;
+    }
+
+    .workspace.toolbar-hidden {
+        padding: 6px 4px 10px 4px;
+    }
+
+    .zoom-controls-wrap {
+        display: inline-flex !important;
+        flex-shrink: 0 !important;
+    }
 }
 

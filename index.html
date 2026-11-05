@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mignotes (Chromebook Edition) - Notas & Circuitos Qucs</title>
+    <title>Mignotes (Chromebook Edition) - Notas & Circuitos</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a73e8">
 
@@ -21,46 +21,51 @@
             <button class="tool-btn" id="btn-toggle-sidebar" onclick="toggleSidebar()" title="Mostrar/Ocultar Cadernos" style="margin-right:2px;">
                 <i data-lucide="menu"></i>
             </button>
-            <div class="logo">
-                <i data-lucide="book-open"></i> Mignotes
+            <div class="logo-stack" title="Mignotes Chromebook Edition">
+                <span class="logo-main"><i data-lucide="book-open" style="width:14px; height:14px; vertical-align:-1px;"></i> Mignotes</span>
+                <span class="logo-badge">CHROMEBOOK</span>
             </div>
-            <span class="badge">CHROMEBOOK</span>
         </div>
 
         <div class="header-actions">
-            <!-- Navegação e Gestão de Folhas do Caderno (+ à esquerda, - à direita) -->
+            <!-- Navegação e Gestão de Folhas do Caderno -->
             <div class="page-nav-controls" title="Navegação de Folhas do Caderno">
                 <button class="page-btn page-btn-nav" onclick="cadernoFolhaAnterior()" title="Folha Anterior (◀)">◀</button>
                 <span class="page-counter-badge" id="page-counter-text">Folha 1 / 1</span>
-                <button class="page-btn page-btn-nav" onclick="cadernoProximaFolha()" title="Próxima Folha (▶ - cria nova se estiver na última)">▶</button>
+                <button class="page-btn page-btn-nav" onclick="cadernoProximaFolha()" title="Próxima Folha (▶)">▶</button>
             </div>
 
-            <!-- Botões Rápidos com Nomes Reduzidos -->
-            <button class="btn-action btn-ccnotes" onclick="abrirCCnotesModal()" title="Abrir editor dedicado CCnotes Qucs">
-                <i data-lucide="zap"></i> Desenhar CE
+            <!-- Botões Rápidos Compactos -->
+            <button class="btn-action btn-ccnotes" onclick="abrirCCnotesModal()" title="Desenhar Circuito Elétrico (CE)">
+                <i data-lucide="zap"></i> <span class="btn-lbl">CE</span>
             </button>
-            <button class="btn-action btn-convert-all" onclick="converterTodoTextoManuscrito()" title="Transformar todo o texto manuscrito em texto tipográfico">
-                <i data-lucide="type"></i> OCR Folha
+            <button class="btn-action btn-convert-all" onclick="converterTodoTextoManuscrito()" title="OCR Folha: converter escrita manual em texto tipográfico">
+                <i data-lucide="type"></i> <span class="btn-lbl">OCR</span>
             </button>
             <button class="btn-action btn-ocr" id="btn-ocr" onclick="toggleOCRMode()" title="Circular com laço para converter">
-                <i data-lucide="sparkles"></i> OCR Laço
+                <i data-lucide="sparkles"></i> <span class="btn-lbl">Laço</span>
             </button>
             <button class="btn-action btn-template" onclick="alternarTemplate()" id="btn-template" title="Alternar padrão de fundo da folha">
-                <i data-lucide="grid"></i> Tipo Folha
+                <i data-lucide="grid"></i> <span class="btn-lbl">Fundo</span>
             </button>
             
-            <!-- Controlo de Zoom Calibrado -->
-            <div class="zoom-controls-wrap">
+            <!-- Controlo de Zoom Calibrado (Sempre visível no formato vertical) -->
+            <div class="zoom-controls-wrap" title="Controlo de Zoom">
                 <button class="zoom-btn" onclick="zoomDiminuir()" title="Diminuir Zoom (-20%)"><i data-lucide="minus"></i></button>
                 <button class="zoom-display" onclick="zoomReset()" id="zoom-level-text" title="Clique para 100%">100%</button>
                 <button class="zoom-btn" onclick="zoomAumentar()" title="Aumentar Zoom (+25%)"><i data-lucide="plus"></i></button>
             </div>
 
+            <!-- Botão para Recolher/Expandir Barra de Desenho (Otimização Ecrã Inteiro) -->
+            <button class="btn-action btn-toggle-tb" id="btn-toggle-tb" onclick="toggleDrawingToolbar()" title="Mostrar/Ocultar Barra de Desenho">
+                <i data-lucide="pen-tool"></i>
+            </button>
+
             <button class="btn-action btn-print" onclick="executarImpressao()" title="Imprimir em A4 1:1">
-                <i data-lucide="printer"></i> Imprimir
+                <i data-lucide="printer"></i>
             </button>
             <button class="btn-action btn-clear" onclick="limparFolha()" title="Limpar folha">
-                <i data-lucide="trash-2"></i> Limpar
+                <i data-lucide="trash-2"></i>
             </button>
         </div>
     </header>
@@ -71,17 +76,26 @@
             <div class="sidebar-title">
                 <span>CADERNOS</span>
             </div>
+
+            <!-- Menu Dropdown para Selecionar Cadernos Ativos -->
+            <div class="sidebar-dropdown-box" title="Selecionar Caderno em que está a trabalhar">
+                <label for="selectCadernoAtivo" class="sidebar-mini-label">Caderno Ativo:</label>
+                <select id="selectCadernoAtivo" class="caderno-select" onchange="selecionarCadernoDropdown(this.value)">
+                    <!-- Preenchido dinamicamente -->
+                </select>
+            </div>
+
             <button class="btn-new-nb btn-stylish-nb" onclick="abrirModalNovoCaderno()" title="Criar Novo Caderno Estiloso">
-                <svg class="nb-stylish-icon" viewBox="0 0 24 28" width="20" height="23" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="1" width="20" height="26" rx="4" fill="#3b82f6" stroke="#60a5fa" stroke-width="1.5"/>
-    <rect x="2" y="1" width="5" height="26" rx="1" fill="#1e40af"/>
-    <line x1="10" y1="8" x2="18" y2="8" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="10" y1="13" x2="18" y2="13" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
-    <rect x="0.5" y="4" width="3" height="2" rx="1" fill="#facc15"/>
-    <rect x="0.5" y="10" width="3" height="2" rx="1" fill="#facc15"/>
-    <rect x="0.5" y="16" width="3" height="2" rx="1" fill="#facc15"/>
-    <rect x="0.5" y="22" width="3" height="2" rx="1" fill="#facc15"/>
-</svg>
+                <svg class="nb-stylish-icon" viewBox="0 0 24 28" width="18" height="21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="1" width="20" height="26" rx="4" fill="#3b82f6" stroke="#60a5fa" stroke-width="1.5"/>
+                    <rect x="2" y="1" width="5" height="26" rx="1" fill="#1e40af"/>
+                    <line x1="10" y1="8" x2="18" y2="8" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+                    <line x1="10" y1="13" x2="18" y2="13" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+                    <rect x="0.5" y="4" width="3" height="2" rx="1" fill="#facc15"/>
+                    <rect x="0.5" y="10" width="3" height="2" rx="1" fill="#facc15"/>
+                    <rect x="0.5" y="16" width="3" height="2" rx="1" fill="#facc15"/>
+                    <rect x="0.5" y="22" width="3" height="2" rx="1" fill="#facc15"/>
+                </svg>
                 <span>+ Novo Caderno</span>
             </button>
             <div class="notebook-cards" id="cadernos-lista"></div>
@@ -325,7 +339,7 @@
     </div>
 
     <!-- ========================================================
-         MODAL / STUDIO CCnotes: Editor de Circuitos com Simbologia Qucs Completa das Imagens
+         MODAL / STUDIO CCnotes: Editor de Circuitos com Simbologia Completa das Imagens
          ======================================================== -->
     <div class="ccnotes-modal" id="ccnotesModal">
         <div class="ccnotes-header">
@@ -343,12 +357,12 @@
         </div>
 
         <div class="ccnotes-body">
-            <!-- Painel Lateral: Componentes do Qucs.exe fiéis às imagens enviadas -->
-                                    <aside class="ccnotes-palette">
-                <!-- Dropdown e Pesquisa de Componentes Qucs -->
+            <!-- Painel Lateral: Componentes fiéis às imagens enviadas -->
+            <aside class="ccnotes-palette">
+                <!-- Dropdown e Pesquisa de Componentes -->
                 <div class="palette-category-selector">
                     <label for="ccCatDropdown" class="cat-select-label">
-                        <i data-lucide="layers"></i> Categoria Qucs
+                        <i data-lucide="layers"></i> Categoria Componentes
                     </label>
                     <select id="ccCatDropdown" class="cc-cat-dropdown" onchange="ccFilterCategory(this.value)">
                         <option value="all">📂 Todas as Categorias (Colapsadas)</option>
@@ -397,7 +411,7 @@
                         </div>
                     </div>
 
-                    <!-- Categoria 2: Fontes (Qucs) -->
+                    <!-- Categoria 2: Fontes -->
                     <div class="cc-cat-section" id="cat_fontes">
                         <div class="palette-category" onclick="ccToggleAccordion('cat_fontes')">
                             <span class="cat-title"><i data-lucide="zap"></i> 2. FONTES</span>
@@ -625,10 +639,12 @@
                     <span id="cc-comp-mode-text">Fixo (30px)</span>
                 </button>
 
-                <!-- Controlo de Tamanho Editável e Reposição Rápida a 30px -->
-                <div class="cc-size-control-group" title="Ajustar tamanho do componente selecionado ou repor para 30px">
+                <!-- Controlo de Tamanho Editável com Setas Horizontais ◀ e ▶ e Reposição a 30px -->
+                <div class="cc-size-control-group" title="Ajustar tamanho do componente, fórmula ou símbolo">
                     <span class="cc-size-label">Tam:</span>
-                    <input type="number" id="ccPartSizeInput" class="cc-size-input" value="30" min="20" max="150" step="5" onchange="ccSetPartSizeFromInput(this.value)" oninput="ccSetPartSizeFromInput(this.value)" title="Tamanho em píxeis (30px padrão)">
+                    <button class="cc-size-step-btn" onclick="ccStepPartSize(-5)" title="Diminuir tamanho (◀)">◀</button>
+                    <input type="number" id="ccPartSizeInput" class="cc-size-input" value="30" min="10" max="200" step="5" onchange="ccSetPartSizeFromInput(this.value)" oninput="ccSetPartSizeFromInput(this.value)" title="Tamanho em píxeis (30px padrão)">
+                    <button class="cc-size-step-btn" onclick="ccStepPartSize(5)" title="Aumentar tamanho (▶)">▶</button>
                     <button class="cc-size-reset-btn" onclick="ccResetPartSize30()" title="Repor para exatamente 30px">30px</button>
                 </div>
 
