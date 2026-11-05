@@ -57,12 +57,13 @@ const ZOOM_LEVELS = [0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0];
 let currentZoomIdx = 3; // 1.0 (100%)
 
 // Templates de Folha A4
-const TEMPLATES = ['grid_5mm', 'lines_margin', 'dots', 'blank'];
+const TEMPLATES = ['grid_5mm', 'lines_margin', 'dots', 'blank', 'milimetrico'];
 const TEMPLATE_NAMES = {
     'grid_5mm': 'Quadriculada 5mm',
     'lines_margin': 'Pautada c/ Margem',
     'dots': 'Pontilhada',
-    'blank': 'Lisa'
+    'blank': 'Lisa',
+    'milimetrico': 'Milimétrico Engenharia'
 };
 let templateIdx = 0;
 
@@ -204,6 +205,36 @@ function renderBackground() {
                 templateCtx.fill();
             }
         }
+    } else if (mode === 'milimetrico') {
+        // Papel Milimétrico Técnico de Engenharia (Milimétrico fino 5px e maior 25px)
+        templateCtx.strokeStyle = '#fed7aa';
+        templateCtx.lineWidth = 0.5;
+        for (let x = 0; x <= templateCanvas.width; x += 5) {
+            templateCtx.beginPath();
+            templateCtx.moveTo(x + 0.5, 0);
+            templateCtx.lineTo(x + 0.5, templateCanvas.height);
+            templateCtx.stroke();
+        }
+        for (let y = 0; y <= templateCanvas.height; y += 5) {
+            templateCtx.beginPath();
+            templateCtx.moveTo(0, y + 0.5);
+            templateCtx.lineTo(templateCanvas.width, y + 0.5);
+            templateCtx.stroke();
+        }
+        templateCtx.strokeStyle = '#f97316';
+        templateCtx.lineWidth = 1;
+        for (let x = 0; x <= templateCanvas.width; x += 25) {
+            templateCtx.beginPath();
+            templateCtx.moveTo(x + 0.5, 0);
+            templateCtx.lineTo(x + 0.5, templateCanvas.height);
+            templateCtx.stroke();
+        }
+        for (let y = 0; y <= templateCanvas.height; y += 25) {
+            templateCtx.beginPath();
+            templateCtx.moveTo(0, y + 0.5);
+            templateCtx.lineTo(templateCanvas.width, y + 0.5);
+            templateCtx.stroke();
+        }
     }
 
     templateCtx.restore();
@@ -222,6 +253,14 @@ function alternarTemplate() {
 // Controlo de Zoom Calibrado e Contínuo (-20% e +25% até 300%)
 // --------------------------------------------------------
 let currentZoomScale = 1.0;
+let panX = 0;
+let panY = 0;
+
+function atualizarTransformFolha() {
+    if (!paperWrapper) return;
+    paperWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoomScale})`;
+    paperWrapper.style.transformOrigin = 'center top';
+}
 
 function aplicarZoom(smoothScale = null) {
     if (smoothScale !== null) {
@@ -236,7 +275,7 @@ function aplicarZoom(smoothScale = null) {
     } else {
         currentZoomScale = ZOOM_LEVELS[currentZoomIdx] || 1.0;
     }
-    paperWrapper.style.transform = `scale(${currentZoomScale})`;
+    atualizarTransformFolha();
     const txt = document.getElementById('zoom-level-text');
     if (txt) txt.innerText = `${Math.round(currentZoomScale * 100)}%`;
 }
@@ -260,6 +299,8 @@ function zoomDiminuir() {
 function zoomReset() {
     currentZoomIdx = 3; // 1.0 (100%)
     currentZoomScale = 1.0;
+    panX = 0;
+    panY = 0;
     aplicarZoom();
 }
 
@@ -835,42 +876,61 @@ paintCanvas.addEventListener('pointermove', (e) => {
     }
 });
 
-// Manipulação Global de Gestos Táteis (1 Dedo = Pan / 2 Dedos = Pinch-to-Zoom Contínuo)
+// Manipulação Global de Gestos Táteis (1 Dedo = Pan Livre / 2 Dedos = Pinch-to-Zoom Contínuo)
+const workspaceElement = document.getElementById('workspace');
+if (workspaceElement) {
+    workspaceElement.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch') {
+            activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (activeTouchMap.size === 1) {
+                touchLastMid = { x: e.clientX, y: e.clientY };
+            } else if (activeTouchMap.size >= 2) {
+                const pts = Array.from(activeTouchMap.values());
+                touchPinchDist0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                touchPinchZoom0 = currentZoomScale;
+                touchLastMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+            }
+        }
+    });
+}
+
 window.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch') {
         if (!activeTouchMap.has(e.pointerId)) return;
         activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        const ws = document.getElementById('workspace');
 
         if (activeTouchMap.size === 1) {
-            // 1 dedo: arrastar a folha para os lados e para cima/baixo (Pan)
+            // 1 dedo: arrastar a folha para os lados e para cima/baixo livremente (Pan livre na vertical e horizontal)
             const currentPt = activeTouchMap.get(e.pointerId);
-            if (touchLastMid && ws) {
+            if (touchLastMid) {
                 const dx = currentPt.x - touchLastMid.x;
                 const dy = currentPt.y - touchLastMid.y;
-                ws.scrollLeft -= dx;
-                ws.scrollTop -= dy;
+                panX += dx;
+                panY += dy;
+                atualizarTransformFolha();
             }
             touchLastMid = { x: currentPt.x, y: currentPt.y };
         } else if (activeTouchMap.size >= 2) {
-            // 2 dedos: pinch-to-zoom contínuo (ampliar e reduzir a folha) + deslocamento
+            // 2 dedos: pinch-to-zoom contínuo (ampliar e reduzir a folha) + deslocamento conjunto
             const pts = Array.from(activeTouchMap.values());
             const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             const currentMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
 
             if (touchPinchDist0 > 0) {
                 const scaleFactor = currentDist / touchPinchDist0;
-                const targetZoom = Math.max(0.4, Math.min(3.0, touchPinchZoom0 * scaleFactor));
-                aplicarZoom(targetZoom);
+                currentZoomScale = Math.max(0.4, Math.min(3.0, touchPinchZoom0 * scaleFactor));
             }
 
-            if (touchLastMid && ws) {
+            if (touchLastMid) {
                 const dx = currentMid.x - touchLastMid.x;
                 const dy = currentMid.y - touchLastMid.y;
-                ws.scrollLeft -= dx;
-                ws.scrollTop -= dy;
+                panX += dx;
+                panY += dy;
             }
             touchLastMid = currentMid;
+            atualizarTransformFolha();
+            const txt = document.getElementById('zoom-level-text');
+            if (txt) txt.innerText = `${Math.round(currentZoomScale * 100)}%`;
         }
     }
 });
@@ -985,7 +1045,11 @@ function corrigirOrtografia(texto) {
         'ligacao': 'ligação', 'ligacoes': 'ligações',
         'conclusao': 'conclusão', 'conclusoes': 'conclusões',
         'diodo': 'díodo', 'diodos': 'díodos',
-        'analise': 'análise', 'ohmico': 'óhmico'
+        'analise': 'análise', 'ohmico': 'óhmico',
+        'paragrafo': 'parágrafo', 'paragrafos': 'parágrafos',
+        'numero': 'número', 'numeros': 'números',
+        'pagina': 'página', 'paginas': 'páginas',
+        'periodo': 'período', 'periodos': 'períodos'
     };
 
     for (const [err, corr] of Object.entries(dic)) {
@@ -1014,24 +1078,34 @@ function formatarTextoGramatical(texto) {
         return prefix + char.toUpperCase();
     });
 
-    // 2. Nomes próprios, países, cidades e cientistas com maiúscula inicial obrigatória
-    const properNouns = [
-        'Portugal', 'Brasil', 'Espanha', 'Franca', 'França', 'Alemanha', 'Italia', 'Itália', 'Inglaterra', 'Reino Unido',
-        'Lisboa', 'Porto', 'Coimbra', 'Braga', 'Aveiro', 'Faro', 'Setubal', 'Setúbal', 'Viseu', 'Leiria', 'Evora', 'Évora', 'Guimarães',
-        'Madrid', 'Paris', 'Londres', 'Berlim', 'Roma', 'Washington',
-        'Europa', 'America', 'América', 'Asia', 'Ásia', 'Africa', 'África', 'Oceania',
-        'Maria', 'Joao', 'João', 'Jose', 'José', 'Manuel', 'Antonio', 'António', 'Ana', 'Carlos', 'Pedro', 'Miguel',
-        'Tiago', 'Diogo', 'Rui', 'Luis', 'Luís', 'Andre', 'André', 'Jorge', 'Francisco', 'Paulo', 'Ines', 'Inês',
-        'Mariana', 'Beatriz', 'Carolina', 'Goncalo', 'Gonçalo', 'Bernardo', 'Rita', 'Sofia',
-        'Ohm', 'Kirchhoff', 'Thevenin', 'Thévenin', 'Norton', 'Ampere', 'Ampère', 'Volt', 'Volta',
-        'Coulomb', 'Faraday', 'Henry', 'Watt', 'Hertz', 'Fourier', 'Laplace', 'Maxwell', 'Gauss',
-        'Joule', 'Tesla', 'Siemens', 'Weber', 'Nyquist', 'Bode', 'Newton', 'Einstein'
-    ];
+    // 2. Nomes próprios, países, cidades e cientistas com maiúscula inicial e acentuação gramatical rigorosa
+    const properNounsMap = {
+        'portugal': 'Portugal', 'brasil': 'Brasil', 'espanha': 'Espanha',
+        'franca': 'França', 'frança': 'França', 'alemanha': 'Alemanha',
+        'italia': 'Itália', 'itália': 'Itália', 'inglaterra': 'Inglaterra', 'reino unido': 'Reino Unido',
+        'lisboa': 'Lisboa', 'porto': 'Porto', 'coimbra': 'Coimbra', 'braga': 'Braga', 'aveiro': 'Aveiro', 'faro': 'Faro',
+        'setubal': 'Setúbal', 'setúbal': 'Setúbal', 'viseu': 'Viseu', 'leiria': 'Leiria',
+        'evora': 'Évora', 'évora': 'Évora', 'guimaraes': 'Guimarães', 'guimarães': 'Guimarães',
+        'madrid': 'Madrid', 'paris': 'Paris', 'londres': 'Londres', 'berlim': 'Berlim', 'roma': 'Roma', 'washington': 'Washington',
+        'europa': 'Europa', 'america': 'América', 'américa': 'América', 'asia': 'Ásia', 'ásia': 'Ásia', 'africa': 'África', 'áfrica': 'África', 'oceania': 'Oceania',
+        'maria': 'Maria', 'joao': 'João', 'joão': 'João', 'jose': 'José', 'josé': 'José',
+        'manuel': 'Manuel', 'antonio': 'António', 'antónio': 'António', 'ana': 'Ana', 'carlos': 'Carlos', 'pedro': 'Pedro', 'miguel': 'Miguel',
+        'tiago': 'Tiago', 'diogo': 'Diogo', 'rui': 'Rui', 'luis': 'Luís', 'luís': 'Luís',
+        'andre': 'André', 'andré': 'André', 'jorge': 'Jorge', 'francisco': 'Francisco', 'paulo': 'Paulo',
+        'ines': 'Inês', 'inês': 'Inês', 'mariana': 'Mariana', 'beatriz': 'Beatriz', 'carolina': 'Carolina',
+        'goncalo': 'Gonçalo', 'gonçalo': 'Gonçalo', 'bernardo': 'Bernardo', 'rita': 'Rita', 'sofia': 'Sofia',
+        'ohm': 'Ohm', 'kirchhoff': 'Kirchhoff', 'thevenin': 'Thévenin', 'thévenin': 'Thévenin', 'norton': 'Norton',
+        'ampere': 'Ampère', 'ampère': 'Ampère', 'volta': 'Volta',
+        'coulomb': 'Coulomb', 'faraday': 'Faraday', 'henry': 'Henry', 'watt': 'Watt', 'hertz': 'Hertz',
+        'fourier': 'Fourier', 'laplace': 'Laplace', 'maxwell': 'Maxwell', 'gauss': 'Gauss',
+        'joule': 'Joule', 'tesla': 'Tesla', 'siemens': 'Siemens', 'weber': 'Weber', 'nyquist': 'Nyquist', 'bode': 'Bode',
+        'newton': 'Newton', 'einstein': 'Einstein'
+    };
 
-    properNouns.forEach(name => {
-        const re = new RegExp('\\b' + name.toLowerCase() + '\\b', 'gi');
-        s = s.replace(re, name);
-    });
+    for (const [err, corr] of Object.entries(properNounsMap)) {
+        const re = new RegExp('\\b' + err + '\\b', 'gi');
+        s = s.replace(re, corr);
+    }
 
     // 3. Unidades e grandezas elétricas padronizadas (isoladas ou coladas a números)
     const unitsAndAcronyms = {
@@ -1116,35 +1190,50 @@ async function reconhecerEscritaManuscrita(strokes, bounds) {
     const areaW = Math.max(100, Math.round((bounds.maxX - minX) + 30));
     const areaH = Math.max(60, Math.round((bounds.maxY - minY) + 30));
 
+    // Ordenar traços horizontalmente (da esquerda para a direita)
+    const sortedStrokes = [...strokes].sort((a, b) => {
+        const ax = a.segments?.[0]?.[0]?.x ?? 0;
+        const bx = b.segments?.[0]?.[0]?.x ?? 0;
+        return ax - bx;
+    });
+
     const ink = [];
-    strokes.forEach(s => {
+    let currentT = 0;
+    sortedStrokes.forEach(s => {
         if (s.segments) {
             s.segments.forEach(seg => {
-                if (seg.length > 1) {
+                if (seg.length > 0) {
                     const xs = [], ys = [], ts = [];
                     seg.forEach((pt, i) => {
-                        // Normalização rigorosa em relação aos limites da área de escrita
                         xs.push(Math.round(Math.max(5, pt.x - minX + 15)));
                         ys.push(Math.round(Math.max(5, pt.y - minY + 15)));
-                        ts.push(i * 20);
+                        ts.push(currentT + i * 20);
                     });
+                    if (seg.length === 1) {
+                        // Traço de ponto único (pingo no i, acento ou ponto final)
+                        xs.push(xs[0]);
+                        ys.push(ys[0]);
+                        ts.push(currentT + 20);
+                    }
+                    currentT += Math.max(40, seg.length * 20 + 30);
                     ink.push([xs, ys, ts]);
                 }
             });
         }
     });
 
-    // 1. Tentar Google Handwriting Input API (com coordenadas normalizadas e endpoints redundantes)
+    // 1. Tentar Google Handwriting Input API com múltiplos endpoints
     if (ink.length > 0) {
         const endpoints = [
             'https://inputtools.google.com/request?ime=handwriting&app=mobilesearch',
+            'https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch',
             'https://www.google.com.tw/inputtools/request?ime=handwriting&app=mobilesearch'
         ];
 
         for (let ep of endpoints) {
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3500);
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
 
                 const res = await fetch(ep, {
                     method: 'POST',
@@ -1167,15 +1256,19 @@ async function reconhecerEscritaManuscrita(strokes, bounds) {
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data[1] && data[1][0] && data[1][0][1] && data[1][0][1].length > 0) {
-                        const cand = data[1][0][1][0];
-                        if (cand && cand.trim()) return cand.trim();
+                        const candidates = data[1][0][1];
+                        for (let cand of candidates) {
+                            if (cand && cand.trim()) {
+                                return cand.trim();
+                            }
+                        }
                     }
                 }
             } catch (e) {}
         }
     }
 
-    // 2. Fallback inteligente baseado na geometria dos traços
+    // 2. Fallback baseado na geometria dos traços
     return extrairTextoFielDosTracos(strokes, bounds);
 }
 
@@ -1247,7 +1340,9 @@ async function processarOCRComLaco() {
 
     const input = prompt("OCR Manuscrito - Digite ou confirme o texto reconhecido:", textoReconhecido);
     if (input !== null && input.trim()) {
-        criarBlocoTexto(input.trim(), minX, minY, 18, 0);
+        cadernoSalvarHistorico();
+        const textoFormatado = formatarTextoGramatical(input.trim());
+        criarBlocoTexto(textoFormatado, minX, minY, 18, 0);
         salvarNoLocalStorage();
     } else if (input === null) {
         // Se o utilizador cancelar, restaura os traços originais
@@ -1266,6 +1361,7 @@ async function converterTodoTextoManuscrito() {
 
     if (!confirm("Converter toda a escrita manual da folha em texto tipográfico de computador?")) return;
 
+    cadernoSalvarHistorico();
     const statusBox = document.getElementById('ocr-status');
     statusBox.style.display = 'flex';
 
@@ -1298,7 +1394,16 @@ async function converterTodoTextoManuscrito() {
     currentStrokes = currentStrokes.filter(s => s.type !== 'free');
     redrawStrokes();
 
+    // Ordenar linhas de cima para baixo
+    linhas.sort((a, b) => a.avgY - b.avgY);
+
     for (let linha of linhas) {
+        // Ordenar traços da linha da esquerda para a direita
+        linha.strokes.sort((a, b) => {
+            const ax = a.segments?.[0]?.[0]?.x ?? 0;
+            const bx = b.segments?.[0]?.[0]?.x ?? 0;
+            return ax - bx;
+        });
         let texto = await reconhecerEscritaManuscrita(linha.strokes, linha);
         if (texto && texto.trim()) {
             texto = formatarTextoGramatical(texto);
@@ -2001,7 +2106,7 @@ function ativarInteracaoMarcador(div) {
     let isDragging = false, ox = 0, oy = 0;
 
     div.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.marker-btn-del, .marker-text')) return;
+        if (e.target.closest('.marker-btn-del')) return;
         document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
         div.classList.add('selected');
         selectedElement = div;
@@ -2101,9 +2206,12 @@ function ativarInteracaoEtiqueta(div) {
 // Menu Criar & Templates Editáveis (Horário, Exercícios, Laboratório, Planeamento, Ficheiro)
 // --------------------------------------------------------
 function toggleCriarDropdown(e) {
-    if (e) e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     const m = document.getElementById('menuCriarDropdown');
-    if (m) m.classList.toggle('open');
+    if (m) {
+        m.classList.toggle('show');
+        m.classList.toggle('open');
+    }
 }
 
 function criarTemplateHorario() {
@@ -2260,6 +2368,82 @@ function criarTemplatePlaneamento() {
     `;
     ativarInteracaoTemplate(div);
     placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+}
+
+function criarTemplateProjeto() {
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = 'placed-template-block template-projeto';
+    div.dataset.templateType = 'projeto';
+    div.style.left = '40px';
+    div.style.top = '100px';
+
+    div.innerHTML = `
+        <div class="template-header">
+            <span class="template-title">📁 FICHA DE PROJETO / MÓDULO TÉCNICO</span>
+            <div class="template-actions">
+                <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Template">✕</button>
+            </div>
+        </div>
+        <div class="template-body">
+            <div class="template-section">
+                <div class="template-section-title">Designação do Projeto & Módulo:</div>
+                <div class="template-editable-box" contenteditable="true">Fonte de Alimentação Regulada DC com Proteção Ativa (Módulo 5)</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title">Especificações e Requisitos Técnicos:</div>
+                <div class="template-editable-box" contenteditable="true">• Tensão de Entrada: 230V AC ± 10%, 50Hz\n• Tensão de Saída Regulável: 1.25V a 24V DC\n• Corrente Máxima: 2.5A com limitação eletrónica ativa\n• Ondulação residual (Ripple) < 10mV RMS</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title">Lista de Materiais e Componentes Principais (BOM):</div>
+                <div class="template-editable-box" contenteditable="true">1. Regulador LM317T / Dissipador de Calor TO-220\n2. Transformador 230V -> 18V AC 50VA\n3. Ponte Retificadora 4A / Condensador 4700µF 50V\n4. Potenciómetro multivoltas 5kΩ / Resistores de precisão 1%</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title" style="color:#2563eb;">Etapas de Validação & Testes:</div>
+                <div class="template-editable-box" contenteditable="true">1. [x] Simulação do esquema e verificação de tensões\n2. [ ] Montagem em breadboard e medição térmica\n3. [ ] Conceção do PCB e ensaio em carga máxima</div>
+            </div>
+        </div>
+    `;
+    ativarInteracaoTemplate(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+}
+
+function aplicarPapelMilimetrico() {
+    cadernoSalvarHistorico();
+    templateIdx = TEMPLATES.indexOf('milimetrico');
+    if (templateIdx === -1) {
+        TEMPLATES.push('milimetrico');
+        TEMPLATE_NAMES['milimetrico'] = 'Milimétrico Engenharia';
+        templateIdx = TEMPLATES.indexOf('milimetrico');
+    }
+    const btn = document.getElementById('btn-template');
+    if (btn) btn.innerHTML = `<i data-lucide="grid"></i> Folha: Milimétrico Engenharia`;
+    if (window.lucide) lucide.createIcons();
+    renderBackground();
+    salvarNoLocalStorage();
+}
+
+function aplicarPapelPautado() {
+    cadernoSalvarHistorico();
+    templateIdx = TEMPLATES.indexOf('lines_margin');
+    if (templateIdx === -1) templateIdx = 1;
+    const btn = document.getElementById('btn-template');
+    if (btn) btn.innerHTML = `<i data-lucide="grid"></i> Folha: Pautada c/ Margem`;
+    if (window.lucide) lucide.createIcons();
+    renderBackground();
+    salvarNoLocalStorage();
+}
+
+function aplicarPapelQuadriculado() {
+    cadernoSalvarHistorico();
+    templateIdx = TEMPLATES.indexOf('grid_5mm');
+    if (templateIdx === -1) templateIdx = 0;
+    const btn = document.getElementById('btn-template');
+    if (btn) btn.innerHTML = `<i data-lucide="grid"></i> Folha: Quadriculada 5mm`;
+    if (window.lucide) lucide.createIcons();
+    renderBackground();
     salvarNoLocalStorage();
 }
 
@@ -5674,17 +5858,35 @@ function ccResetPartSize30() {
     }
 }
 
+function ccToggleSidebar() {
+    const pal = document.getElementById('ccnotesSidebar') || document.querySelector('.ccnotes-palette');
+    if (pal) {
+        pal.classList.toggle('collapsed');
+        if (pal.classList.contains('collapsed')) {
+            pal.style.display = 'none';
+        } else {
+            pal.style.display = 'flex';
+        }
+    }
+}
+
 function ccToggleDimMode() {
     ccIsFixed = !ccIsFixed;
     const btn = document.getElementById('cc-comp-mode-btn');
     const txt = document.getElementById('cc-comp-mode-text');
     if (ccIsFixed) {
-        btn.className = 'btn-dim-mode active-fixo';
-        txt.innerText = 'Fixo (30px)';
+        if (btn) {
+            btn.className = 'btn-dim-mode active-fixo';
+            btn.title = 'Tamanho Fixo (30px)';
+        }
+        if (txt) txt.innerText = 'Fixo (30px)';
         ccSetPartSizeFromInput(30);
     } else {
-        btn.className = 'btn-dim-mode active-dim';
-        txt.innerText = 'Dim Livre';
+        if (btn) {
+            btn.className = 'btn-dim-mode active-dim';
+            btn.title = 'Tamanho Livre (Dim)';
+        }
+        if (txt) txt.innerText = 'Dim Livre';
     }
     ccRenderAll();
 }
@@ -6186,7 +6388,10 @@ window.addEventListener('click', (e) => {
     }
     if (!e.target.closest('.sidebar-create-group')) {
         const cm = document.getElementById('menuCriarDropdown');
-        if (cm) cm.classList.remove('open');
+        if (cm) {
+            cm.classList.remove('open');
+            cm.classList.remove('show');
+        }
     }
     if (!e.target.closest('#postItModal') && !e.target.closest('#btn-postit-menu') && !e.target.closest('[onclick*="togglePostItModal"]')) {
         const pm = document.getElementById('postItModal');

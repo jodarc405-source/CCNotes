@@ -1899,125 +1899,243 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
    ========================================================= */
 .placed-postit {
     position: absolute;
-    width: 170px;
-    min-height: 150px;
-    padding: 22px 14px 14px 14px;
-    border-radius: 2px 2px 12px 2px;
-    box-shadow: 2px 5px 15px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.1);
+    width: 185px;
+    min-height: 160px;
+    padding: 0;
+    border-radius: 4px 4px 14px 4px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #1e293b;
-    cursor: move;
-    z-index: 15;
+    z-index: 25;
     user-select: text;
     pointer-events: auto;
     transition: box-shadow 0.15s ease;
-    border-top: 10px solid rgba(0,0,0,0.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .placed-postit:hover {
-    box-shadow: 3px 8px 22px rgba(0,0,0,0.35);
+    box-shadow: 0 14px 30px rgba(0,0,0,0.45);
+}
+
+.placed-postit .postit-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    cursor: grab;
+    user-select: none;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.placed-postit .postit-bar:active {
+    cursor: grabbing;
 }
 
 .placed-postit .postit-content {
     outline: none;
     font-size: 14px;
     line-height: 1.4;
-    min-height: 100px;
+    padding: 10px 12px 14px 12px;
+    flex: 1;
+    min-height: 110px;
     font-weight: 500;
 }
 
-.placed-postit .postit-del-btn {
-    position: absolute;
-    top: 2px;
-    right: 4px;
+.placed-postit .postit-btn-del {
     background: transparent;
     border: none;
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.45);
     font-size: 13px;
     cursor: pointer;
     line-height: 1;
-    padding: 2px 4px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
-.placed-postit .postit-del-btn:hover {
+.placed-postit .postit-btn-del:hover {
     color: #ef4444;
-    background: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.2);
 }
 
-/* Marcadores de Página (Page Markers / Abas) */
+/* Cores Realistas e Vivas de Post-it */
+.placed-postit.postit-yellow {
+    background: #fef08a !important;
+    color: #713f12 !important;
+    border-top: 14px solid #facc15 !important;
+}
+.placed-postit.postit-green {
+    background: #bbf7d0 !important;
+    color: #14532d !important;
+    border-top: 14px solid #4ade80 !important;
+}
+.placed-postit.postit-blue {
+    background: #bae6fd !important;
+    color: #0c4a6e !important;
+    border-top: 14px solid #38bdf8 !important;
+}
+.placed-postit.postit-pink {
+    background: #fbcfe8 !important;
+    color: #831843 !important;
+    border-top: 14px solid #f472b6 !important;
+}
+.placed-postit.postit-orange {
+    background: #fed7aa !important;
+    color: #7c2d12 !important;
+    border-top: 14px solid #fb923c !important;
+}
+
+/* Marcadores de Página (Page Markers / Fitas Coloridas) */
 .placed-page-marker {
     position: absolute;
-    padding: 6px 14px;
+    padding: 7px 14px;
     font-size: 12px;
     font-weight: 800;
-    color: #ffffff;
-    border-radius: 0 6px 6px 0;
-    box-shadow: 2px 4px 10px rgba(0,0,0,0.3);
-    cursor: move;
-    z-index: 16;
+    color: #ffffff !important;
+    border-radius: 0 8px 8px 0;
+    box-shadow: 2px 5px 15px rgba(0,0,0,0.35);
+    cursor: grab;
+    z-index: 26;
     pointer-events: auto;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+    user-select: none;
 }
 
-.placed-page-marker .marker-del-btn {
+.placed-page-marker:active {
+    cursor: grabbing;
+}
+
+.placed-page-marker .marker-text {
+    outline: none;
+    font-weight: 800;
+}
+
+.placed-page-marker .marker-btn-del {
     background: transparent;
     border: none;
-    color: rgba(255,255,255,0.7);
+    color: rgba(255,255,255,0.8);
     cursor: pointer;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
 }
 
-.placed-page-marker .marker-del-btn:hover {
+.placed-page-marker .marker-btn-del:hover {
+    background: rgba(0,0,0,0.25);
     color: #fff;
+}
+
+.placed-page-marker.marker-urgente {
+    background: #ef4444 !important;
+    border-left: 6px solid #b91c1c !important;
+}
+.placed-page-marker.marker-importante {
+    background: #eab308 !important;
+    border-left: 6px solid #a16207 !important;
+}
+.placed-page-marker.marker-formula {
+    background: #2563eb !important;
+    border-left: 6px solid #1d4ed8 !important;
+}
+.placed-page-marker.marker-duvida {
+    background: #ea580c !important;
+    border-left: 6px solid #c2410c !important;
+}
+.placed-page-marker.marker-tarefa {
+    background: #059669 !important;
+    border-left: 6px solid #047857 !important;
 }
 
 /* Etiquetas Escolares / Emprego */
 .placed-label-card {
     position: absolute;
-    background: #ffffff;
+    background: #ffffff !important;
     border: 2px solid #334155;
-    padding: 10px 14px;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    cursor: move;
-    z-index: 15;
+    padding: 0;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    z-index: 25;
     pointer-events: auto;
-    min-width: 200px;
+    min-width: 230px;
     font-family: inherit;
+    overflow: hidden;
 }
 
-.placed-label-card .label-title {
+.placed-label-card .label-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: #f1f5f9;
+    border-bottom: 2px solid #cbd5e1;
     font-weight: 800;
-    font-size: 13px;
-    color: #0f172a;
-    border-bottom: 1.5px solid #cbd5e1;
-    padding-bottom: 3px;
-    margin-bottom: 6px;
-    outline: none;
+    font-size: 11px;
+    cursor: grab;
+    user-select: none;
 }
 
-.placed-label-card .label-body {
+.placed-label-card .label-card-header:active {
+    cursor: grabbing;
+}
+
+.placed-label-card .label-card-body {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.placed-label-card .label-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
     font-size: 12px;
-    color: #475569;
-    outline: none;
-    line-height: 1.4;
+    color: #1e293b;
 }
 
-.placed-label-card .label-del-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
+.placed-label-card .label-tag {
+    font-weight: 700;
+    color: #64748b;
+    font-size: 11px;
+    min-width: 60px;
+}
+
+.placed-label-card .label-val {
+    outline: none;
+    border-bottom: 1px dashed #94a3b8;
+    flex: 1;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.placed-label-card .label-btn-del {
     background: transparent;
     border: none;
     color: #94a3b8;
     cursor: pointer;
     font-size: 12px;
+}
+.placed-label-card .label-btn-del:hover {
+    color: #ef4444;
+}
+
+.placed-label-card.label-escola {
+    border-left: 8px solid #2563eb !important;
+}
+.placed-label-card.label-trabalho {
+    border-left: 8px solid #059669 !important;
+}
+.placed-label-card.label-projeto {
+    border-left: 8px solid #7c3aed !important;
 }
 
 /* Modal de Post-it & Etiquetas */
@@ -2059,7 +2177,20 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
     left: 0;
     transform: none;
     width: 100%;
-    min-width: 220px;
+    min-width: 240px;
+    z-index: 1000 !important;
+}
+
+.create-dropdown.show,
+.create-dropdown.open {
+    display: block !important;
+    animation: none;
+}
+
+/* CCnotes Sidebar Toggle */
+.ccnotes-palette.collapsed,
+.ccnotes-sidebar.collapsed {
+    display: none !important;
 }
 
 .sidebar-dropdown-row {

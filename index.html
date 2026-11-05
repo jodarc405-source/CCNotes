@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=4.0">
+    <link rel="stylesheet" href="style.css?v=5.0">
 </head>
 <body>
     <header>
@@ -88,23 +88,28 @@
                 </div>
             </div>
 
-            <!-- Menu Dropdown Criar... (Caderno, Horário, Exercícios, Relatório, Templates) -->
+            <!-- Menu Dropdown Criar... (Cadernos, Horários, Exercícios, Relatório, Templates, Fundo) -->
             <div class="sidebar-create-group">
-                <button class="btn-new-nb btn-stylish-nb" onclick="toggleCriarDropdown()" id="btnCriarDropdown" title="Criar novos cadernos, horários ou importar templates">
+                <button class="btn-new-nb btn-stylish-nb" onclick="toggleCriarDropdown(event)" id="btnCriarDropdown" title="Criar novos cadernos, horários ou importar templates">
                     <i data-lucide="plus-circle" style="width:16px; height:16px;"></i>
                     <span>+ Criar...</span>
                     <i data-lucide="chevron-down" style="width:14px; height:14px; margin-left:auto;"></i>
                 </button>
                 <div class="dropdown-menu create-dropdown" id="menuCriarDropdown">
-                    <button class="dropdown-item" onclick="abrirModalNovoCaderno()"><i data-lucide="book-plus"></i> Novo Caderno</button>
-                    <button class="dropdown-item" onclick="criarTemplateHorario()"><i data-lucide="calendar"></i> Horário Escolar / Semanal</button>
-                    <button class="dropdown-item" onclick="criarTemplateExercicios()"><i data-lucide="file-text"></i> Folha de Exercícios / Resumo</button>
-                    <button class="dropdown-item" onclick="criarTemplateLaboratorio()"><i data-lucide="flask-conical"></i> Relatório de Laboratório</button>
-                    <button class="dropdown-item" onclick="criarTemplatePlaneamento()"><i data-lucide="check-square"></i> Tabela de Tarefas / Emprego</button>
+                    <button class="dropdown-item" onclick="abrirModalNovoCaderno(); toggleCriarDropdown(event);"><i data-lucide="book-plus"></i> Novo Caderno</button>
+                    <button class="dropdown-item" onclick="criarTemplateHorario(); toggleCriarDropdown(event);"><i data-lucide="calendar"></i> Horário Escolar / Semanal</button>
+                    <button class="dropdown-item" onclick="criarTemplateExercicios(); toggleCriarDropdown(event);"><i data-lucide="file-text"></i> Folha de Exercícios / Resumo</button>
+                    <button class="dropdown-item" onclick="criarTemplateLaboratorio(); toggleCriarDropdown(event);"><i data-lucide="flask-conical"></i> Relatório de Laboratório</button>
+                    <button class="dropdown-item" onclick="criarTemplatePlaneamento(); toggleCriarDropdown(event);"><i data-lucide="check-square"></i> Tabela de Tarefas / Emprego</button>
+                    <button class="dropdown-item" onclick="criarTemplateProjeto(); toggleCriarDropdown(event);"><i data-lucide="briefcase"></i> Ficha de Projeto / Módulo</button>
+                    <div class="divider" style="margin:4px 0; width:100%; height:1px; background:#334155;"></div>
+                    <button class="dropdown-item" onclick="aplicarPapelMilimetrico(); toggleCriarDropdown(event);"><i data-lucide="grid"></i> Papel Milimétrico (Engenharia)</button>
+                    <button class="dropdown-item" onclick="aplicarPapelPautado(); toggleCriarDropdown(event);"><i data-lucide="align-justify"></i> Folha Pautada (Linhas)</button>
+                    <button class="dropdown-item" onclick="aplicarPapelQuadriculado(); toggleCriarDropdown(event);"><i data-lucide="hash"></i> Folha Quadriculada (5mm)</button>
                     <div class="divider" style="margin:4px 0; width:100%; height:1px; background:#334155;"></div>
                     <label class="dropdown-item" style="cursor:pointer; margin:0; display:flex; align-items:center; gap:8px;">
                         <i data-lucide="upload"></i> Inserir Template / Ficheiro
-                        <input type="file" id="inputImportarTemplate" accept=".png,.jpg,.jpeg,.svg,.json,.txt,.pdf" style="display:none;" onchange="importarTemplateFicheiro(event)">
+                        <input type="file" id="inputImportarTemplate" accept=".png,.jpg,.jpeg,.svg,.json,.txt,.pdf" style="display:none;" onchange="importarTemplateFicheiro(event); toggleCriarDropdown(event);">
                     </label>
                 </div>
             </div>
@@ -384,7 +389,7 @@
 
         <div class="ccnotes-body">
             <!-- Painel Lateral: Componentes fiéis às imagens enviadas -->
-            <aside class="ccnotes-palette">
+            <aside class="ccnotes-palette" id="ccnotesSidebar">
                 <!-- Dropdown e Pesquisa de Componentes -->
                 <div class="palette-category-selector">
                     <label for="ccCatDropdown" class="cat-select-label">
@@ -653,25 +658,23 @@
 
             <!-- Barra de Ferramentas interna do CCnotes -->
             <div class="ccnotes-toolbar">
+                <button class="tool-btn" id="btn-toggle-cc-sidebar" onclick="ccToggleSidebar()" title="Mostrar/Ocultar Barra Lateral de Componentes"><i data-lucide="menu"></i></button>
                 <button class="tool-btn active" id="cc-tool-select" onclick="ccSetTool('select')" title="Mover / Selecionar Componentes e Fios (V)"><i data-lucide="move"></i></button>
                 <button class="tool-btn" id="cc-tool-wire" onclick="ccSetTool('wire')" title="Desenhar Fio Ortogonal 90° (W)"><i data-lucide="share-2"></i></button>
                 <button class="tool-btn" id="cc-tool-eraser" onclick="ccSetTool('eraser')" title="Borracha CCnotes (Tocar em qualquer fio ou componente para apagar)"><i data-lucide="eraser"></i></button>
 
                 <div class="divider"></div>
 
-                <!-- Botão Fixo / Dim -->
-                <button id="cc-comp-mode-btn" class="btn-dim-mode active-fixo" onclick="ccToggleDimMode()" title="Alternar entre tamanho padronizado 30px ou esticar (Dim)">
-                    <i data-lucide="cpu" style="width:13px; height:13px;"></i>
-                    <span id="cc-comp-mode-text">Fixo (30px)</span>
+                <!-- Botão Fixo / Dim (Sem texto para economizar espaço e não transbordar o ecrã) -->
+                <button id="cc-comp-mode-btn" class="btn-dim-mode active-fixo" onclick="ccToggleDimMode()" title="Alternar entre tamanho fixo 30px ou livre (Dim)">
+                    <i data-lucide="cpu" style="width:14px; height:14px;"></i>
                 </button>
 
-                <!-- Controlo de Tamanho Editável com Setas Horizontais ◀ e ▶ e Reposição a 30px -->
+                <!-- Controlo de Tamanho Compacto com Setas Horizontais ◀ e ▶ (Sem etiqueta azul de 30px) -->
                 <div class="cc-size-control-group" title="Ajustar tamanho do componente, fórmula ou símbolo">
-                    <span class="cc-size-label">Tam:</span>
                     <button class="cc-size-step-btn" onclick="ccStepPartSize(-5)" title="Diminuir tamanho (◀)">◀</button>
                     <input type="number" id="ccPartSizeInput" class="cc-size-input" value="30" min="10" max="200" step="5" onchange="ccSetPartSizeFromInput(this.value)" oninput="ccSetPartSizeFromInput(this.value)" title="Tamanho em píxeis (30px padrão)">
                     <button class="cc-size-step-btn" onclick="ccStepPartSize(5)" title="Aumentar tamanho (▶)">▶</button>
-                    <button class="cc-size-reset-btn" onclick="ccResetPartSize30()" title="Repor para exatamente 30px">30px</button>
                 </div>
 
                 <!-- Botão Legenda -->
@@ -793,6 +796,6 @@
     </div>
 
     <!-- Script Principal com Cache Buster -->
-    <script src="app.js?v=4.0"></script>
+    <script src="app.js?v=5.0"></script>
 </body>
 </html>

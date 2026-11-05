@@ -1,0 +1,36 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+A tua Prioridade tens de resolver de forma definitiva: O reconhecimento de texto OCR está a falhar nas letras, quero que no reconhecimento de texto respeite estas regras sendo as letras escritas pelo utilizador maiusculas ou minusculas: 1. A primeira letra é sempre maiscula ou inicio de paragrafos etc... + respeita as normas gramaticais, tais como nomes, paises, etc, o restante é sempre minusculas. (não resolveste nos ultimos prompts, confirma antes de entregar).
+
+Quero que a folha no modo vertical e horizontal dê para arrastar com o dedo para os lados e para cima de forma livre, já dá para ampilar e reduzir mas falta arrastar com o dedo livremente.
+
+No desenho de circuitos a barra de ferramentas tira as letras da caixa fixo (30px) e retira a etiqueta azul 30px para a barra não ficar de fora do ecra do lado direito, e quero que dê para esconder a barra lateral poe igual ao que acontecenas notas.
+
+Adiciona ao OCR correção de texto dos erros ortograficos, falhaste no ultimo prompt pedi e não resolveste.
+
+O criar ao carregar na seta nao aparece nada, devia aparecer os cadernos horarios templates notas e mais tipos que deves pesquisar na net e implementar.
+
+Quero que coloques a opçao de colocar post it, marcadores de pagina e notas e todo o tipo de etiquetas que usamos na escola ou no emprego, estes criaste mas nao apracem com a cor deles e nao da par movimenta-los. 
+
+Na barra de menu tem um simbolo como o da caneta que nao sei o que faz, diz me o que é isto.
+
+
+
+
+
+
+
+
+
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.
