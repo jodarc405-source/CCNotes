@@ -1,13 +1,26 @@
 {
-  "name": "Mignotes (Chromebook Edition)",
-  "short_name": "Mignotes",
+  "name": "CCNotes (Chromebook Edition)",
+  "short_name": "CCNotes",
   "description": "App de notas com proporção A4 e editor de circuitos elétricos Qucs CCnotes integrado",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0b1120",
   "theme_color": "#111827",
   "orientation": "any",
   "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "icon.svg",
       "sizes": "any",

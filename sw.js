@@ -1,11 +1,13 @@
-const CACHE_NAME = 'mignotes-chromebook-v2';
+const CACHE_NAME = 'ccnotes-chromebook-v3';
 const ASSETS = [
   './',
   'index.html',
   'style.css',
   'app.js',
   'manifest.json',
-  'icon.svg'
+  'icon.svg',
+  'icon-192.png',
+  'icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {
