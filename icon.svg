@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#0b1120"/>
+    </linearGradient>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#9333ea"/>
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  <!-- Fundo com cantos arredondados -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <rect x="12" y="12" width="488" height="488" rx="98" fill="none" stroke="#1f2937" stroke-width="6"/>
+
+  <!-- Folha A4 de Notas -->
+  <rect x="110" y="70" width="292" height="372" rx="20" fill="#ffffff" filter="drop-shadow(0 15px 30px rgba(0,0,0,0.6))"/>
+  
+  <!-- Linhas pautadas suaves -->
+  <line x1="150" y1="130" x2="362" y2="130" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="150" y1="170" x2="362" y2="170" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="150" y1="210" x2="362" y2="210" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Símbolo elétrico de circuito / Raio no centro -->
+  <path d="M280 180 L200 290 L260 290 L230 380 L325 260 L265 260 Z" fill="url(#blueGrad)"/>
+
+  <!-- Resistor zigzag no rodapé da folha -->
+  <path d="M160 380 H185 L195 365 L210 395 L225 365 L240 395 L250 380 H275" stroke="#9333ea" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

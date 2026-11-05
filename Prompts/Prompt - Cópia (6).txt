@@ -1,0 +1,27 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+Ao colocares as folhas na barra de menu peso que por causa disto nao da para escrever na folha, como tambem depois de desenhar um circuito nao da para passar para a folha das notas, tira o + e - porque ja puseste as setas.
+
+Na lista de componentes tira das 2. fontes a palavra qucs e apaga o 10. controladores de simulaçao e apaga o texto qucs simulador suite.
+
+Quero na barra das ferramentas um botão para inserir caixas de texto e outras ferramentas, e a possibilidade de escolher aonde na folha inserir as caixas bem como formulas e outros.
+
+Prioritário: Quero quero que as formulas ao colocar nas folhas sejam do tipo que usamos na escola e não como escrevemos com o teclado, os símbolos na tabela esta texto fora das caixas dos simbolos como podes ver na imagem que envio, e na imagem tem as formulas para veres que nao está como devia a fraçao, nao esta como escrevemos na escola (não resolveste no ultimo prompt).
+
+Quero que na barra das ferramentas apareça o numero da folha do caderno e o + á esquerda e o menos á direita para avançar ou retroceder nas folhas e quero que no caderno dê para criar as folhas que quiser apareça as folhas 
+
+ Adiciona mais estes componentes das imagens que enviei ao CCnotes.
+
+
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.

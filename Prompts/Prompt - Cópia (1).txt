@@ -1,0 +1,33 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+O dim e fixo no CCnotes não funciona, os fios não ficam conetados aos componentes, devem colar ao aproximar.
+
+Ao rodar os componentes para a vertical o texto fica em cima dos componentes.
+
+Quero a lista de componentes completa do Qucs.exe simulador de circuitos electricos.
+
+Ao inserir o circuito na folha das notas nao deve ter caixa com fundo branco, só deve transportar os componentes e manter a opçao de aumentar e diminuir.
+
+O OCR está bem a caixa para verificar e escrever, mas não faz reconhecimento dos carateres aparece uma formula, o fundo da caixa nao dve ser branco nem ter bordas só deve ficar o texto na folha, com opçao de aumentar ou diminuir.
+
+Quero mas um botao para transformar todo o texto da folha de notas em texto de computador.
+
+As formas perfeitas devem dar para movimentar.
+
+Insere mais as formulas automaticas e os simbolos como no word.
+
+
+
+ 
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.

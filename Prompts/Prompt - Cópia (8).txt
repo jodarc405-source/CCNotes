@@ -1,0 +1,26 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+Prioritário: Quero que quando converter OCR Folha e laço OCR a primeira letra seja Maiúscula se for inicio e o resto minúscula ou como na gramatica maiúscula a primeira letra de nome, pais etc... (não resolveste no ultimo prompt).
+
+Prioritário: Ao inserir novo caderno depois de escrever o nome na caixa não aparece o caderno, quero um icon de um caderno estiloso em vez do botão atual. (não resolveste no ultimo prompt).
+
+Ao criar o caderno criar com 10 folhas predefinidas, mas este campo de numero de folhas deve ser editável se quiser acrescentar mais ou menos folhas.
+
+Prioritário: Os componentes depois de aumentar o seu tamanho devem sempre poder voltar a 30px o que não está a acontecer. (não resolveste no ultimo prompt), por exemplo põe uma caixa editável para inserir o tamanho na barra. (não resolveste no ultimo prompt).
+
+Prioritário: Depois de Inserir na folha de notas o circuito se voltar ao circuito novamente não da para movimentar os componentes e nem da para inserir formulas e símbolos. (não resolveste no ultimo prompt).
+
+
+
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.

@@ -1,0 +1,23 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+A lista de componentes faz menu dropdown nas categorias para colapsar os componentes e não andar a descer á procura dos componentes.
+
+Quero que alteres as formulas por exemplo a lei de ohm deve estar dividida e não toda junta o mesmo com as outras, quero que as formulas ao colocar nas folhas sejam do tipo que usamos na escola e nao como escrevemos com o teclado..
+
+o T manuscrito Texto pc está Top a funcionar, só o Laço Ocr não dá para selecionar e utiliza o mesmo que no anterior para resolver.
+
+ Adiciona mais estes componentes das imagens que enviei ao CCnotes.
+
+
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.

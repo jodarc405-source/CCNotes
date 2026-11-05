@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mignotes (Chromebook Edition) - Notas & Circuitos Qucs</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a73e8">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- KaTeX para fórmulas matemáticas e elétricas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-wrap">
+            <button class="tool-btn" id="btn-toggle-sidebar" onclick="toggleSidebar()" title="Mostrar/Ocultar Cadernos" style="margin-right:2px;">
+                <i data-lucide="menu"></i>
+            </button>
+            <div class="logo">
+                <i data-lucide="book-open"></i> Mignotes
+            </div>
+            <span class="badge">CHROMEBOOK</span>
+        </div>
+
+        <div class="header-actions">
+            <!-- Navegação e Gestão de Folhas do Caderno (+ à esquerda, - à direita) -->
+            <div class="page-nav-controls" title="Navegação de Folhas do Caderno">
+                <button class="page-btn page-btn-nav" onclick="cadernoFolhaAnterior()" title="Folha Anterior (◀)">◀</button>
+                <span class="page-counter-badge" id="page-counter-text">Folha 1 / 1</span>
+                <button class="page-btn page-btn-nav" onclick="cadernoProximaFolha()" title="Próxima Folha (▶ - cria nova se estiver na última)">▶</button>
+            </div>
+
+            <!-- Botões Rápidos com Nomes Reduzidos -->
+            <button class="btn-action btn-ccnotes" onclick="abrirCCnotesModal()" title="Abrir editor dedicado CCnotes Qucs">
+                <i data-lucide="zap"></i> Desenhar CE
+            </button>
+            <button class="btn-action btn-convert-all" onclick="converterTodoTextoManuscrito()" title="Transformar todo o texto manuscrito em texto tipográfico">
+                <i data-lucide="type"></i> OCR Folha
+            </button>
+            <button class="btn-action btn-ocr" id="btn-ocr" onclick="toggleOCRMode()" title="Circular com laço para converter">
+                <i data-lucide="sparkles"></i> OCR Laço
+            </button>
+            <button class="btn-action btn-template" onclick="alternarTemplate()" id="btn-template" title="Alternar padrão de fundo da folha">
+                <i data-lucide="grid"></i> Tipo Folha
+            </button>
+            
+            <!-- Controlo de Zoom Calibrado -->
+            <div class="zoom-controls-wrap">
+                <button class="zoom-btn" onclick="zoomDiminuir()" title="Diminuir Zoom (-20%)"><i data-lucide="minus"></i></button>
+                <button class="zoom-display" onclick="zoomReset()" id="zoom-level-text" title="Clique para 100%">100%</button>
+                <button class="zoom-btn" onclick="zoomAumentar()" title="Aumentar Zoom (+25%)"><i data-lucide="plus"></i></button>
+            </div>
+
+            <button class="btn-action btn-print" onclick="executarImpressao()" title="Imprimir em A4 1:1">
+                <i data-lucide="printer"></i> Imprimir
+            </button>
+            <button class="btn-action btn-clear" onclick="limparFolha()" title="Limpar folha">
+                <i data-lucide="trash-2"></i> Limpar
+            </button>
+        </div>
+    </header>
+
+    <div class="app-layout">
+        <!-- Barra Lateral de Cadernos com Abas Internas -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-title">
+                <span>CADERNOS</span>
+            </div>
+            <button class="btn-new-nb btn-stylish-nb" onclick="abrirModalNovoCaderno()" title="Criar Novo Caderno Estiloso">
+                <svg class="nb-stylish-icon" viewBox="0 0 24 28" width="20" height="23" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="1" width="20" height="26" rx="4" fill="#3b82f6" stroke="#60a5fa" stroke-width="1.5"/>
+    <rect x="2" y="1" width="5" height="26" rx="1" fill="#1e40af"/>
+    <line x1="10" y1="8" x2="18" y2="8" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="10" y1="13" x2="18" y2="13" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+    <rect x="0.5" y="4" width="3" height="2" rx="1" fill="#facc15"/>
+    <rect x="0.5" y="10" width="3" height="2" rx="1" fill="#facc15"/>
+    <rect x="0.5" y="16" width="3" height="2" rx="1" fill="#facc15"/>
+    <rect x="0.5" y="22" width="3" height="2" rx="1" fill="#facc15"/>
+</svg>
+                <span>+ Novo Caderno</span>
+            </button>
+            <div class="notebook-cards" id="cadernos-lista"></div>
+        </aside>
+
+        <!-- Área Principal de Trabalho (Folha A4 Fixa) -->
+        <main class="workspace" id="workspace">
+            <!-- Barra de Ferramentas Flutuante Superior do Mignotes -->
+            <div class="toolbar" id="mainToolbar">
+                <!-- Caneta Fluida -->
+                <div class="tool-group">
+                    <button class="tool-btn active" id="btn-pen" onclick="setTool('pen')" title="Caneta Fluida (Clique para propriedades)">
+                        <i data-lucide="pen-tool"></i>
+                        <span class="tool-arrow">▼</span>
+                    </button>
+                    <div id="pen-dropdown" class="dropdown-menu prop-panel">
+                        <div class="prop-title">Caneta Fluida</div>
+                        <div class="slider-wrap">
+                            <span style="font-size:12px; color:#cbd5e1; min-width:28px;" id="pen-size-label">3px</span>
+                            <input type="range" id="pen-size-slider" min="1" max="25" value="3" oninput="setSize(this.value)" style="flex:1;">
+                            <div class="slider-preview"><div class="slider-dot" id="pen-preview-dot" style="width:3px; height:3px; background:#000;"></div></div>
+                        </div>
+                        <div class="prop-title">Cores Rápidas</div>
+                        <div class="color-palette">
+                            <div class="color-swatch active" style="background:#000000" onclick="selectSwatch(this, '#000000')"></div>
+                            <div class="color-swatch" style="background:#1d4ed8" onclick="selectSwatch(this, '#1d4ed8')"></div>
+                            <div class="color-swatch" style="background:#dc2626" onclick="selectSwatch(this, '#dc2626')"></div>
+                            <div class="color-swatch" style="background:#15803d" onclick="selectSwatch(this, '#15803d')"></div>
+                            <div class="color-swatch" style="background:#9333ea" onclick="selectSwatch(this, '#9333ea')"></div>
+                            <input type="color" id="pen-color-picker" value="#000000" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lápis de Esboço -->
+                <div class="tool-group">
+                    <button class="tool-btn" id="btn-pencil" onclick="setTool('pencil')" title="Lápis de Esboço (Clique para propriedades)">
+                        <i data-lucide="pencil"></i>
+                        <span class="tool-arrow">▼</span>
+                    </button>
+                    <div id="pencil-dropdown" class="dropdown-menu prop-panel">
+                        <div class="prop-title">Lápis de Esboço</div>
+                        <div class="slider-wrap">
+                            <span style="font-size:12px; color:#cbd5e1; min-width:28px;" id="pencil-size-label">2px</span>
+                            <input type="range" id="pencil-size-slider" min="1" max="25" value="2" oninput="setSize(this.value)" style="flex:1;">
+                            <div class="slider-preview"><div class="slider-dot" id="pencil-preview-dot" style="width:2px; height:2px; background:#475569;"></div></div>
+                        </div>
+                        <div class="prop-title">Cores Rápidas</div>
+                        <div class="color-palette">
+                            <div class="color-swatch active" style="background:#475569" onclick="selectSwatch(this, '#475569')"></div>
+                            <div class="color-swatch" style="background:#000000" onclick="selectSwatch(this, '#000000')"></div>
+                            <div class="color-swatch" style="background:#1d4ed8" onclick="selectSwatch(this, '#1d4ed8')"></div>
+                            <div class="color-swatch" style="background:#dc2626" onclick="selectSwatch(this, '#dc2626')"></div>
+                            <input type="color" id="pencil-color-picker" value="#475569" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Marcador Fluorescente -->
+                <div class="tool-group">
+                    <button class="tool-btn" id="btn-highlighter" onclick="setTool('highlighter')" title="Marcador Fluorescente (Clique para propriedades)">
+                        <i data-lucide="highlighter"></i>
+                        <span class="tool-arrow">▼</span>
+                    </button>
+                    <div id="highlighter-dropdown" class="dropdown-menu prop-panel">
+                        <div class="prop-title">Marcador Fluorescente</div>
+                        <div class="slider-wrap">
+                            <span style="font-size:12px; color:#cbd5e1; min-width:28px;" id="high-size-label">15px</span>
+                            <input type="range" id="high-size-slider" min="5" max="30" value="15" oninput="setSize(this.value)" style="flex:1;">
+                            <div class="slider-preview"><div class="slider-dot" id="high-preview-dot" style="width:15px; height:15px; background:#facc15;"></div></div>
+                        </div>
+                        <div class="prop-title">Cores Fluorescentes</div>
+                        <div class="color-palette">
+                            <div class="color-swatch active" style="background:#facc15" onclick="selectSwatch(this, '#facc15')"></div>
+                            <div class="color-swatch" style="background:#4ade80" onclick="selectSwatch(this, '#4ade80')"></div>
+                            <div class="color-swatch" style="background:#38bdf8" onclick="selectSwatch(this, '#38bdf8')"></div>
+                            <div class="color-swatch" style="background:#f472b6" onclick="selectSwatch(this, '#f472b6')"></div>
+                            <div class="color-swatch" style="background:#c084fc" onclick="selectSwatch(this, '#c084fc')"></div>
+                            <input type="color" id="high-color-picker" value="#facc15" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inserir Caixa de Texto e Ferramentas (Clique na folha onde quer inserir) -->
+                <button class="tool-btn" id="btn-text" onclick="setTool('text')" title="Inserir Caixa de Texto (Clique na folha onde quer inserir)">
+                    <i data-lucide="type"></i>
+                </button>
+
+                <!-- Menu Dropdown: Formas Automáticas do Word & Linhas (Ponto 6) -->
+                <div class="tool-group">
+                    <button class="tool-btn" id="btn-shape-menu" onclick="toggleDropdown('shape-dropdown')" title="Formas Automáticas do Word">
+                        <i data-lucide="shapes" id="active-shape-icon"></i>
+                        <span class="tool-arrow">▼</span>
+                    </button>
+                    <div id="shape-dropdown" class="dropdown-menu" style="min-width:260px;">
+                        <div class="prop-title">LINHAS & SETAS</div>
+                        <button class="dropdown-item active" onclick="selectShape('line', 'minus', 'Linha 90°')"><i data-lucide="minus"></i> Linha Reta Perpendicular 90°</button>
+                        <button class="dropdown-item" onclick="selectShape('arrow_single', 'arrow-right', 'Seta Simples')"><i data-lucide="arrow-right"></i> Seta Simples (→)</button>
+                        <button class="dropdown-item" onclick="selectShape('arrow_double', 'move-horizontal', 'Seta Dupla')"><i data-lucide="move-horizontal"></i> Seta Dupla (↔)</button>
+                        
+                        <div class="prop-title" style="margin-top:6px;">FORMAS BÁSICAS DO WORD</div>
+                        <button class="dropdown-item" onclick="selectShape('rect', 'square', 'Retângulo')"><i data-lucide="square"></i> Retângulo / Quadrado</button>
+                        <button class="dropdown-item" onclick="selectShape('rect_round', 'box', 'Retângulo Arredondado')"><i data-lucide="box"></i> Retângulo Cantos Arredondados</button>
+                        <button class="dropdown-item" onclick="selectShape('circle', 'circle', 'Círculo')"><i data-lucide="circle"></i> Círculo Perfeito</button>
+                        <button class="dropdown-item" onclick="selectShape('ellipse', 'disc', 'Elipse')"><i data-lucide="disc"></i> Elipse</button>
+                        <button class="dropdown-item" onclick="selectShape('triangle', 'triangle', 'Triângulo')"><i data-lucide="triangle"></i> Triângulo Isósceles</button>
+                        <button class="dropdown-item" onclick="selectShape('triangle_right', 'play', 'Triângulo Retângulo')"><i data-lucide="play"></i> Triângulo Retângulo (90°)</button>
+                        <button class="dropdown-item" onclick="selectShape('diamond', 'gem', 'Losango')"><i data-lucide="gem"></i> Losango (Decisão)</button>
+                        <button class="dropdown-item" onclick="selectShape('pentagon', 'hexagon', 'Pentágono')"><i data-lucide="hexagon"></i> Pentágono</button>
+                        <button class="dropdown-item" onclick="selectShape('hexagon', 'hexagon', 'Hexágono')"><i data-lucide="hexagon"></i> Hexágono</button>
+                        <button class="dropdown-item" onclick="selectShape('star', 'star', 'Estrela')"><i data-lucide="star"></i> Estrela (5 pontas)</button>
+                        <button class="dropdown-item" onclick="selectShape('callout', 'message-square', 'Chamada')"><i data-lucide="message-square"></i> Balão de Texto (Callout)</button>
+                        <button class="dropdown-item" onclick="selectShape('bracket', 'code', 'Chave')"><i data-lucide="code"></i> Chaveta ({)</button>
+                    </div>
+                </div>
+
+                <!-- Menu Dropdown: Borrachas Inteligentes -->
+                <div class="tool-group">
+                    <button class="tool-btn" id="btn-eraser-menu" onclick="toggleDropdown('eraser-dropdown')" title="Borrachas">
+                        <i data-lucide="eraser"></i>
+                        <span class="tool-arrow">▼</span>
+                    </button>
+                    <div id="eraser-dropdown" class="dropdown-menu">
+                        <button class="dropdown-item active" id="item-eraser-stroke" onclick="setEraserType('stroke')">
+                            <i data-lucide="scissors"></i> Borracha de Linha Completa (Toca e apaga)
+                        </button>
+                        <button class="dropdown-item" id="item-eraser-ink" onclick="setEraserType('ink_path')">
+                            <i data-lucide="pen-tool"></i> Borracha de Tinta Cirúrgica (Path)
+                        </button>
+                        <button class="dropdown-item" id="item-eraser-total" onclick="setEraserType('total')">
+                            <i data-lucide="trash"></i> Borracha Total (Apaga tudo ao toque)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Botão de Fórmulas Automáticas e Símbolos (estilo Word) -->
+                <button class="tool-btn" id="btn-word-symbols" onclick="toggleWordSymbolsModal('mignotes')" title="Fórmulas Automáticas & Símbolos (Estilo Word)">
+                    <i data-lucide="sigma"></i>
+                </button>
+
+                <div class="divider"></div>
+
+                <!-- Ferramenta de Seleção e Movimento (Mover formas, circuitos e blocos) -->
+                <button class="tool-btn" id="btn-select" onclick="setTool('select')" title="Mover / Selecionar Elementos e Formas (V)"><i data-lucide="move"></i></button>
+
+                <!-- Rotação Instantânea a 90° -->
+                <button class="tool-btn" id="btn-rotate" onclick="rotateCurrentSelection()" title="Rodar Elemento 90° (Tecla R)"><i data-lucide="rotate-cw"></i></button>
+
+                <div class="divider"></div>
+
+                <!-- Paleta de Cores e Espessura Rápidas da Barra -->
+                <div class="color-palette" id="quick-palette">
+                    <div class="color-swatch active" style="background:#000000" onclick="selectSwatch(this, '#000000')"></div>
+                    <div class="color-swatch" style="background:#1d4ed8" onclick="selectSwatch(this, '#1d4ed8')"></div>
+                    <div class="color-swatch" style="background:#dc2626" onclick="selectSwatch(this, '#dc2626')"></div>
+                    <div class="color-swatch" style="background:#15803d" onclick="selectSwatch(this, '#15803d')"></div>
+                    <div class="color-swatch" style="background:#9333ea" onclick="selectSwatch(this, '#9333ea')"></div>
+                    <input type="color" id="quick-color-picker" value="#000000" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
+                </div>
+
+                <div class="divider"></div>
+
+                <span id="quick-size-label" style="font-size:12px; color:#cbd5e1; min-width:24px;">3px</span>
+                <input type="range" id="quick-size-picker" min="1" max="25" value="3" oninput="setSize(this.value)" style="width:60px; cursor:pointer;" title="Espessura do Traço">
+            </div>
+
+            <!-- Folha A4 Fixa (794 x 1123 px rigorosos) -->
+            <div class="paper-wrapper" id="paperWrapper">
+                <div class="a4-paper" id="paper">
+                    <canvas id="templateCanvas" width="794" height="1123"></canvas>
+                    <canvas id="highlighterCanvas" width="794" height="1123"></canvas>
+                    <canvas id="paintCanvas" width="794" height="1123"></canvas>
+                    <div id="placedBlocksContainer"></div>
+                    <canvas id="previewCanvas" width="794" height="1123"></canvas>
+                    <div id="snapIndicator"></div>
+                </div>
+            </div>
+
+            <!-- Notificação OCR -->
+            <div id="ocr-status">
+                <i data-lucide="sparkles" style="width:16px; color:#c084fc;"></i>
+                <span id="ocr-status-text">A reconhecer escrita manuscrita...</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- ========================================================
+         MODAL: Criar Novo Caderno com Folhas Predefinidas (Editável)
+         ======================================================== -->
+    <div class="modal-backdrop" id="modalNovoCaderno" onclick="if(event.target===this) fecharModalNovoCaderno()">
+        <div class="stylish-modal-card">
+            <div class="stylish-modal-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <svg viewBox="0 0 24 28" width="22" height="26" fill="none">
+                        <rect x="2" y="1" width="20" height="26" rx="4" fill="#3b82f6" stroke="#93c5fd" stroke-width="1.5"/>
+                        <rect x="2" y="1" width="5.5" height="26" rx="1" fill="#1d4ed8"/>
+                        <line x1="10" y1="8" x2="19" y2="8" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+                        <line x1="10" y1="13" x2="19" y2="13" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+                        <line x1="10" y1="18" x2="16" y2="18" stroke="#bfdbfe" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <span class="stylish-modal-title">Novo Caderno</span>
+                </div>
+                <button class="stylish-modal-close" onclick="fecharModalNovoCaderno()">✕</button>
+            </div>
+            <div class="stylish-modal-body">
+                <div class="form-group">
+                    <label for="nbModalNome" class="form-label">Nome do Caderno:</label>
+                    <input type="text" id="nbModalNome" class="form-input" placeholder="Ex: Circuitos Elétricos I" autofocus onkeydown="if(event.key==='Enter') confirmarCriarCaderno()">
+                </div>
+                <div class="form-group">
+                    <label for="nbModalFolhas" class="form-label">Número de Folhas (10 predefinidas, editável):</label>
+                    <input type="number" id="nbModalFolhas" class="form-input" value="10" min="1" max="100" onkeydown="if(event.key==='Enter') confirmarCriarCaderno()">
+                </div>
+            </div>
+            <div class="stylish-modal-footer">
+                <button class="btn-modal-cancel" onclick="fecharModalNovoCaderno()">Cancelar</button>
+                <button class="btn-modal-confirm" onclick="confirmarCriarCaderno()">Criar Caderno</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         MODAL: Fórmulas Automáticas & Símbolos (Estilo Word)
+         (Com todas as fórmulas elétricas ordenadas por importância - Ponto 5)
+         ======================================================== -->
+    <div class="word-symbols-modal" id="wordSymbolsModal">
+        <div class="ws-header">
+            <div class="ws-title"><i data-lucide="sigma"></i> Fórmulas Elétricas & Símbolos (Estilo Word)</div>
+            <button class="ws-close-btn" onclick="toggleWordSymbolsModal()">✕</button>
+        </div>
+        <div class="ws-tabs">
+            <button class="ws-tab-btn active" id="tab-btn-formulas" onclick="switchWordTab('formulas')">Fórmulas Elétricas Ordenadas</button>
+            <button class="ws-tab-btn" id="tab-btn-symbols" onclick="switchWordTab('symbols')">Símbolos & Letras Gregas</button>
+        </div>
+        <div class="ws-content" id="ws-content-formulas">
+            <!-- Inseridas dinamicamente pelo JS ordenadas por importância -->
+        </div>
+        <div class="ws-content" id="ws-content-symbols" style="display:none;">
+            <!-- Inseridos dinamicamente pelo JS -->
+        </div>
+    </div>
+
+    <!-- ========================================================
+         MODAL / STUDIO CCnotes: Editor de Circuitos com Simbologia Qucs Completa das Imagens
+         ======================================================== -->
+    <div class="ccnotes-modal" id="ccnotesModal">
+        <div class="ccnotes-header">
+            <div class="ccnotes-title">
+                <i data-lucide="cpu" style="width:20px; color:#38bdf8;"></i> CCnotes Studio
+            </div>
+            <div class="ccnotes-header-actions">
+                <button class="btn-insert-note" onclick="inserirCircuitoNaNota()" title="Inserir ou atualizar este circuito na folha de notas A4 (sem bordas nem caixas)">
+                    <i data-lucide="check-circle-2"></i> Inserir na Folha de Notas
+                </button>
+                <button class="btn-close-ccnotes" onclick="fecharCCnotesModal()" title="Fechar">
+                    ✕ Fechar
+                </button>
+            </div>
+        </div>
+
+        <div class="ccnotes-body">
+            <!-- Painel Lateral: Componentes do Qucs.exe fiéis às imagens enviadas -->
+                                    <aside class="ccnotes-palette">
+                <!-- Dropdown e Pesquisa de Componentes Qucs -->
+                <div class="palette-category-selector">
+                    <label for="ccCatDropdown" class="cat-select-label">
+                        <i data-lucide="layers"></i> Categoria Qucs
+                    </label>
+                    <select id="ccCatDropdown" class="cc-cat-dropdown" onchange="ccFilterCategory(this.value)">
+                        <option value="all">📂 Todas as Categorias (Colapsadas)</option>
+                        <option value="cat_concentrados">📦 1. Componentes Concentrados</option>
+                        <option value="cat_fontes">⚡ 2. Fontes</option>
+                        <option value="cat_sondas">📟 3. Sondas & Medidores</option>
+                        <option value="cat_transmissao">〰️ 4. Linhas de Transmissão</option>
+                        <option value="cat_semicondutores">💡 5. Semicondutores</option>
+                        <option value="cat_rf">📡 6. RF Components</option>
+                        <option value="cat_veriloga">⚙️ 7. Dispositivos Verilog-A</option>
+                        <option value="cat_digitais">🔲 8. Componentes Digitais</option>
+                        <option value="cat_baseados_fich">📁 9. Baseados em Ficheiro</option>
+                    </select>
+                    <div class="palette-search-box">
+                        <input type="text" id="ccCompSearch" class="cc-comp-search-input" placeholder="Pesquisar componentes..." oninput="ccSearchComponents(this.value)">
+                        <button class="cc-comp-search-clear" onclick="ccClearSearch()" title="Limpar pesquisa">✕</button>
+                    </div>
+                </div>
+
+                <div class="palette-sections-container">
+                    <!-- Categoria 1: Componentes Concentrados -->
+                    <div class="cc-cat-section" id="cat_concentrados">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_concentrados')">
+                            <span class="cat-title"><i data-lucide="box"></i> 1. COMPONENTES CONCENTRADOS</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="res_eu" onclick="ccSelectComp('res_eu')"><i data-lucide="box"></i> Resistência (EU)</button>
+                            <button class="comp-btn" data-symbol="res_us" onclick="ccSelectComp('res_us')"><i data-lucide="activity"></i> Resistência (US)</button>
+                            <button class="comp-btn" data-symbol="cap" onclick="ccSelectComp('cap')"><i data-lucide="pause"></i> Condensador</button>
+                            <button class="comp-btn" data-symbol="ind" onclick="ccSelectComp('ind')"><i data-lucide="loader"></i> Indutor (L)</button>
+                            <button class="comp-btn" data-symbol="gnd" onclick="ccSelectComp('gnd')"><i data-lucide="arrow-down"></i> Massa (GND)</button>
+                            <button class="comp-btn" data-symbol="subcircuit_port" onclick="ccSelectComp('subcircuit_port')"><i data-lucide="circle-dot"></i> Subcircuito</button>
+                            <button class="comp-btn" data-symbol="xfmr" onclick="ccSelectComp('xfmr')"><i data-lucide="repeat"></i> Transformador</button>
+                            <button class="comp-btn" data-symbol="xfmr_tap" onclick="ccSelectComp('xfmr_tap')"><i data-lucide="git-commit"></i> Transf. Deriv.</button>
+                            <button class="comp-btn" data-symbol="dc_block" onclick="ccSelectComp('dc_block')"><i data-lucide="shield"></i> DC Block</button>
+                            <button class="comp-btn" data-symbol="dc_feed" onclick="ccSelectComp('dc_feed')"><i data-lucide="zap"></i> DC Feed</button>
+                            <button class="comp-btn" data-symbol="amplifier" onclick="ccSelectComp('amplifier')"><i data-lucide="play"></i> Amplificador</button>
+                            <button class="comp-btn" data-symbol="gyrator" onclick="ccSelectComp('gyrator')"><i data-lucide="refresh-cw"></i> Gyrator</button>
+                            <button class="comp-btn" data-symbol="probe_i" onclick="ccSelectComp('probe_i')"><i data-lucide="gauge"></i> Sonda Corrente</button>
+                            <button class="comp-btn" data-symbol="probe_v" onclick="ccSelectComp('probe_v')"><i data-lucide="activity"></i> Sonda Tensão</button>
+                            <button class="comp-btn" data-symbol="mutual_ind" onclick="ccSelectComp('mutual_ind')"><i data-lucide="layers"></i> Indutor Mútuo</button>
+                            <button class="comp-btn" data-symbol="xfmr_3mutual" onclick="ccSelectComp('xfmr_3mutual')"><i data-lucide="layers"></i> 3 Indutores Mút.</button>
+                            <button class="comp-btn" data-symbol="xfmr_nmutual" onclick="ccSelectComp('xfmr_nmutual')"><i data-lucide="layers"></i> N Indutores Mút.</button>
+                            <button class="comp-btn" data-symbol="switch" onclick="ccSelectComp('switch')"><i data-lucide="toggle-left"></i> Switch</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 2: Fontes (Qucs) -->
+                    <div class="cc-cat-section" id="cat_fontes">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_fontes')">
+                            <span class="cat-title"><i data-lucide="zap"></i> 2. FONTES</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="v_dc" onclick="ccSelectComp('v_dc')"><i data-lucide="battery"></i> Fonte Vdc</button>
+                            <button class="comp-btn" data-symbol="i_dc" onclick="ccSelectComp('i_dc')"><i data-lucide="arrow-right-circle"></i> Fonte Idc</button>
+                            <button class="comp-btn" data-symbol="v_ac" onclick="ccSelectComp('v_ac')"><i data-lucide="waves"></i> Fonte Vac</button>
+                            <button class="comp-btn" data-symbol="i_ac" onclick="ccSelectComp('i_ac')"><i data-lucide="activity"></i> Fonte Iac</button>
+                            <button class="comp-btn" data-symbol="v_pulse" onclick="ccSelectComp('v_pulse')"><i data-lucide="square"></i> Pulso V</button>
+                            <button class="comp-btn" data-symbol="i_pulse" onclick="ccSelectComp('i_pulse')"><i data-lucide="arrow-up-right"></i> Pulso I</button>
+                            <button class="comp-btn" data-symbol="v_step" onclick="ccSelectComp('v_step')"><i data-lucide="trending-up"></i> Tensão Degrau</button>
+                            <button class="comp-btn" data-symbol="v_noise" onclick="ccSelectComp('v_noise')"><i data-lucide="radio"></i> Ruído V</button>
+                            <button class="comp-btn" data-symbol="i_noise" onclick="ccSelectComp('i_noise')"><i data-lucide="rss"></i> Ruído I</button>
+                            <button class="comp-btn" data-symbol="vcvs" onclick="ccSelectComp('vcvs')"><i data-lucide="maximize"></i> Fonte VCVS</button>
+                            <button class="comp-btn" data-symbol="vccs" onclick="ccSelectComp('vccs')"><i data-lucide="minimize"></i> Fonte VCCS</button>
+                            <button class="comp-btn" data-symbol="ccvs" onclick="ccSelectComp('ccvs')"><i data-lucide="shuffle"></i> Fonte CCVS</button>
+                            <button class="comp-btn" data-symbol="cccs" onclick="ccSelectComp('cccs')"><i data-lucide="repeat"></i> Fonte CCCS</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 3: Sondas & Medidores -->
+                    <div class="cc-cat-section" id="cat_sondas">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_sondas')">
+                            <span class="cat-title"><i data-lucide="gauge"></i> 3. SONDAS & MEDIDORES</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="probe_i" onclick="ccSelectComp('probe_i')"><i data-lucide="gauge"></i> Sonda Corrente</button>
+                            <button class="comp-btn" data-symbol="ohmmeter" onclick="ccSelectComp('ohmmeter')"><i data-lucide="hash"></i> Ohmmeter (Ω)</button>
+                            <button class="comp-btn" data-symbol="probe_v" onclick="ccSelectComp('probe_v')"><i data-lucide="activity"></i> Sonda Tensão</button>
+                            <button class="comp-btn" data-symbol="power_probe" onclick="ccSelectComp('power_probe')"><i data-lucide="zap"></i> Power Probe (W)</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 4: Linhas de Transmissão -->
+                    <div class="cc-cat-section" id="cat_transmissao">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_transmissao')">
+                            <span class="cat-title"><i data-lucide="git-commit"></i> 4. LINHAS DE TRANSMISSÃO</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="tline" onclick="ccSelectComp('tline')"><i data-lucide="minus"></i> Linha Transm.</button>
+                            <button class="comp-btn" data-symbol="tline_4term" onclick="ccSelectComp('tline_4term')"><i data-lucide="columns"></i> Linha 4-Term.</button>
+                            <button class="comp-btn" data-symbol="tline_coupled" onclick="ccSelectComp('tline_coupled')"><i data-lucide="align-justify"></i> Linha Acoplada</button>
+                            <button class="comp-btn" data-symbol="twisted_pair" onclick="ccSelectComp('twisted_pair')"><i data-lucide="link-2"></i> Par-Entrançado</button>
+                            <button class="comp-btn" data-symbol="coaxial" onclick="ccSelectComp('coaxial')"><i data-lucide="circle"></i> Cabo Coaxial</button>
+                            <button class="comp-btn" data-symbol="waveguide_circ" onclick="ccSelectComp('waveguide_circ')"><i data-lucide="circle-dot"></i> Guia Onda Circ.</button>
+                            <button class="comp-btn" data-symbol="waveguide_rect" onclick="ccSelectComp('waveguide_rect')"><i data-lucide="square"></i> Guia Onda Ret.</button>
+                            <button class="comp-btn" data-symbol="tline_rlcg" onclick="ccSelectComp('tline_rlcg')"><i data-lucide="sliders"></i> Linha RLCG</button>
+                            <button class="comp-btn" data-symbol="substrate" onclick="ccSelectComp('substrate')"><i data-lucide="layers"></i> Substrato</button>
+                            <button class="comp-btn" data-symbol="microstrip" onclick="ccSelectComp('microstrip')"><i data-lucide="maximize-2"></i> Microstrip</button>
+                            <button class="comp-btn" data-symbol="mstrip_bend" onclick="ccSelectComp('mstrip_bend')"><i data-lucide="corner-down-right"></i> Canto Microstrip</button>
+                            <button class="comp-btn" data-symbol="mstrip_tee" onclick="ccSelectComp('mstrip_tee')"><i data-lucide="git-pull-request"></i> Microstrip Tee</button>
+                            <button class="comp-btn" data-symbol="mstrip_cross" onclick="ccSelectComp('mstrip_cross')"><i data-lucide="plus"></i> Cruz Microstrip</button>
+                            <button class="comp-btn" data-symbol="mstrip_interdigital" onclick="ccSelectComp('mstrip_interdigital')"><i data-lucide="align-center"></i> Acoplador Interd.</button>
+                            <button class="comp-btn" data-symbol="mstrip_open" onclick="ccSelectComp('mstrip_open')"><i data-lucide="square"></i> Stub Aberto</button>
+                            <button class="comp-btn" data-symbol="mstrip_radial" onclick="ccSelectComp('mstrip_radial')"><i data-lucide="pie-chart"></i> Stub Radial</button>
+                            <button class="comp-btn" data-symbol="coplanar" onclick="ccSelectComp('coplanar')"><i data-lucide="columns"></i> Linha Coplanar</button>
+                            <button class="comp-btn" data-symbol="coplanar_open" onclick="ccSelectComp('coplanar_open')"><i data-lucide="log-out"></i> Aberto Coplanar</button>
+                            <button class="comp-btn" data-symbol="coplanar_short" onclick="ccSelectComp('coplanar_short')"><i data-lucide="log-in"></i> Curto Coplanar</button>
+                            <button class="comp-btn" data-symbol="coplanar_step" onclick="ccSelectComp('coplanar_step')"><i data-lucide="trending-up"></i> Degrau Coplanar</button>
+                            <button class="comp-btn" data-symbol="bond_wire" onclick="ccSelectComp('bond_wire')"><i data-lucide="anchor"></i> Bond Wire</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 5: Semicondutores -->
+                    <div class="cc-cat-section" id="cat_semicondutores">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_semicondutores')">
+                            <span class="cat-title"><i data-lucide="cpu"></i> 5. SEMICONDUTORES</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="diode" onclick="ccSelectComp('diode')"><i data-lucide="play"></i> Díodo Retif.</button>
+                            <button class="comp-btn" data-symbol="zener" onclick="ccSelectComp('zener')"><i data-lucide="shield-alert"></i> Díodo Zener</button>
+                            <button class="comp-btn" data-symbol="led" onclick="ccSelectComp('led')"><i data-lucide="sun"></i> LED</button>
+                            <button class="comp-btn" data-symbol="bjt_npn" onclick="ccSelectComp('bjt_npn')"><i data-lucide="git-branch"></i> BJT NPN</button>
+                            <button class="comp-btn" data-symbol="bjt_pnp" onclick="ccSelectComp('bjt_pnp')"><i data-lucide="git-merge"></i> BJT PNP</button>
+                            <button class="comp-btn" data-symbol="mosfet_n" onclick="ccSelectComp('mosfet_n')"><i data-lucide="sliders"></i> MOSFET (N)</button>
+                            <button class="comp-btn" data-symbol="mosfet_p" onclick="ccSelectComp('mosfet_p')"><i data-lucide="sliders"></i> MOSFET (P)</button>
+                            <button class="comp-btn" data-symbol="opamp" onclick="ccSelectComp('opamp')"><i data-lucide="triangle"></i> Op-Amp (741)</button>
+                            <button class="comp-btn" data-symbol="edd" onclick="ccSelectComp('edd')"><i data-lucide="box"></i> Dispositivo EDD</button>
+                            <button class="comp-btn" data-symbol="diac" onclick="ccSelectComp('diac')"><i data-lucide="code"></i> Diac</button>
+                            <button class="comp-btn" data-symbol="triac" onclick="ccSelectComp('triac')"><i data-lucide="zap"></i> Triac</button>
+                            <button class="comp-btn" data-symbol="thyristor" onclick="ccSelectComp('thyristor')"><i data-lucide="power"></i> Thyristor / SCR</button>
+                            <button class="comp-btn" data-symbol="tunnel_diode" onclick="ccSelectComp('tunnel_diode')"><i data-lucide="fast-forward"></i> Díodo Túnel</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 6: RF Components -->
+                    <div class="cc-cat-section" id="cat_rf">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_rf')">
+                            <span class="cat-title"><i data-lucide="radio"></i> 6. RF COMPONENTS</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="rf_ind" onclick="ccSelectComp('rf_ind')"><i data-lucide="loader"></i> Indutor RF</button>
+                            <button class="comp-btn" data-symbol="rf_cap" onclick="ccSelectComp('rf_cap')"><i data-lucide="pause"></i> Capacitor RF</button>
+                            <button class="comp-btn" data-symbol="spiral_ind" onclick="ccSelectComp('spiral_ind')"><i data-lucide="rotate-cw"></i> Spiral Inductor</button>
+                            <button class="comp-btn" data-symbol="circular_ind" onclick="ccSelectComp('circular_ind')"><i data-lucide="circle"></i> Circular Ind. (Ω)</button>
+                            <button class="comp-btn" data-symbol="isolator" onclick="ccSelectComp('isolator')"><i data-lucide="arrow-right-square"></i> Isolador RF</button>
+                            <button class="comp-btn" data-symbol="circulator" onclick="ccSelectComp('circulator')"><i data-lucide="refresh-cw"></i> Circulador RF</button>
+                            <button class="comp-btn" data-symbol="phase_shifter" onclick="ccSelectComp('phase_shifter')"><i data-lucide="slash"></i> Phase Shifter</button>
+                            <button class="comp-btn" data-symbol="coupler" onclick="ccSelectComp('coupler')"><i data-lucide="shuffle"></i> Coupler</button>
+                            <button class="comp-btn" data-symbol="hybrid" onclick="ccSelectComp('hybrid')"><i data-lucide="crosshair"></i> Hybrid 90°</button>
+                            <button class="comp-btn" data-symbol="bias_t" onclick="ccSelectComp('bias_t')"><i data-lucide="git-pull-request"></i> Bias T</button>
+                            <button class="comp-btn" data-symbol="attenuator" onclick="ccSelectComp('attenuator')"><i data-lucide="minimize-2"></i> Atenuador RF</button>
+                            <button class="comp-btn" data-symbol="rf_device" onclick="ccSelectComp('rf_device')"><i data-lucide="cpu"></i> Dispositivo RF</button>
+                            <button class="comp-btn" data-symbol="rf_2port" onclick="ccSelectComp('rf_2port')"><i data-lucide="box"></i> Quadripolo RF</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 7: Dispositivos Verilog-A -->
+                    <div class="cc-cat-section" id="cat_veriloga">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_veriloga')">
+                            <span class="cat-title"><i data-lucide="file-code"></i> 7. DISPOSITIVOS VERILOG-A</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="amp_modular" onclick="ccSelectComp('amp_modular')"><i data-lucide="play"></i> Amp. Modular</button>
+                            <button class="comp-btn" data-symbol="log_amp" onclick="ccSelectComp('log_amp')"><i data-lucide="activity"></i> Amp. Logarítmico</button>
+                            <button class="comp-btn" data-symbol="potentiometer" onclick="ccSelectComp('potentiometer')"><i data-lucide="sliders"></i> Potenciómetro</button>
+                            <button class="comp-btn" data-symbol="mesfet" onclick="ccSelectComp('mesfet')"><i data-lucide="git-branch"></i> MESFET</button>
+                            <button class="comp-btn" data-symbol="epfl_ekv" onclick="ccSelectComp('epfl_ekv')"><i data-lucide="cpu"></i> EPFL-EKV NMOS</button>
+                            <button class="comp-btn" data-symbol="epfl_ekv_pmos" onclick="ccSelectComp('epfl_ekv_pmos')"><i data-lucide="cpu"></i> EPFL-EKV PMOS</button>
+                            <button class="comp-btn" data-symbol="photodiode" onclick="ccSelectComp('photodiode')"><i data-lucide="sun"></i> Fotodíodo</button>
+                            <button class="comp-btn" data-symbol="phototransistor" onclick="ccSelectComp('phototransistor')"><i data-lucide="eye"></i> Foto-Transístor</button>
+                            <button class="comp-btn" data-symbol="igbt" onclick="ccSelectComp('igbt')"><i data-lucide="zap"></i> NIGBT</button>
+                            <button class="comp-btn" data-symbol="res_nonlinear" onclick="ccSelectComp('res_nonlinear')"><i data-lucide="activity"></i> Resist. Não Linear</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 8: Componentes Digitais (Completo das Imagens 1 e 2) -->
+                    <div class="cc-cat-section" id="cat_digitais">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_digitais')">
+                            <span class="cat-title"><i data-lucide="binary"></i> 8. COMPONENTES DIGITAIS</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="digi_source" onclick="ccSelectComp('digi_source')"><i data-lucide="clock"></i> Digital Clock</button>
+                            <button class="comp-btn" data-symbol="digi_inv" onclick="ccSelectComp('digi_inv')"><i data-lucide="circle-slash"></i> Inverter (NOT)</button>
+                            <button class="comp-btn" data-symbol="digi_and" onclick="ccSelectComp('digi_and')"><i data-lucide="shield"></i> Porta AND</button>
+                            <button class="comp-btn" data-symbol="digi_nand" onclick="ccSelectComp('digi_nand')"><i data-lucide="shield-alert"></i> Porta NAND</button>
+                            <button class="comp-btn" data-symbol="digi_or" onclick="ccSelectComp('digi_or')"><i data-lucide="shield"></i> Porta OR</button>
+                            <button class="comp-btn" data-symbol="digi_nor" onclick="ccSelectComp('digi_nor')"><i data-lucide="shield-alert"></i> Porta NOR</button>
+                            <button class="comp-btn" data-symbol="digi_xor" onclick="ccSelectComp('digi_xor')"><i data-lucide="shield"></i> Porta XOR</button>
+                            <button class="comp-btn" data-symbol="digi_xnor" onclick="ccSelectComp('digi_xnor')"><i data-lucide="shield-alert"></i> Porta XNOR</button>
+                            <button class="comp-btn" data-symbol="digi_buffer" onclick="ccSelectComp('digi_buffer')"><i data-lucide="chevron-right"></i> Buffer</button>
+                            
+                            <!-- Somadores & Flip-Flops (Imagem 1) -->
+                            <button class="comp-btn" data-symbol="half_adder" onclick="ccSelectComp('half_adder')"><i data-lucide="plus-circle"></i> 1Bit Half Adder</button>
+                            <button class="comp-btn" data-symbol="full_adder_1bit" onclick="ccSelectComp('full_adder_1bit')"><i data-lucide="plus-circle"></i> 1Bit Full Adder</button>
+                            <button class="comp-btn" data-symbol="full_adder_2bit" onclick="ccSelectComp('full_adder_2bit')"><i data-lucide="plus-circle"></i> 2Bit Full Adder</button>
+                            <button class="comp-btn" data-symbol="rs_flipflop" onclick="ccSelectComp('rs_flipflop')"><i data-lucide="toggle-left"></i> RS-FlipFlop</button>
+                            <button class="comp-btn" data-symbol="d_flipflop" onclick="ccSelectComp('d_flipflop')"><i data-lucide="toggle-right"></i> D-FlipFlop</button>
+                            <button class="comp-btn" data-symbol="d_flipflop_sr" onclick="ccSelectComp('d_flipflop_sr')"><i data-lucide="toggle-right"></i> D-FF (SR)</button>
+                            <button class="comp-btn" data-symbol="jk_flipflop" onclick="ccSelectComp('jk_flipflop')"><i data-lucide="refresh-cw"></i> JK-FlipFlop</button>
+                            <button class="comp-btn" data-symbol="jk_flipflop_sr" onclick="ccSelectComp('jk_flipflop_sr')"><i data-lucide="refresh-cw"></i> JK-FF (SR)</button>
+                            <button class="comp-btn" data-symbol="t_flipflop" onclick="ccSelectComp('t_flipflop')"><i data-lucide="shuffle"></i> T-FlipFlop</button>
+                            <button class="comp-btn" data-symbol="gated_dlatch" onclick="ccSelectComp('gated_dlatch')"><i data-lucide="lock"></i> Gated D-Latch</button>
+
+                            <!-- Constantes & Padrões (Imagens 1 e 2) -->
+                            <button class="comp-btn" data-symbol="logic_0" onclick="ccSelectComp('logic_0')"><i data-lucide="circle"></i> Logic 0</button>
+                            <button class="comp-btn" data-symbol="logic_1" onclick="ccSelectComp('logic_1')"><i data-lucide="check-circle"></i> Logic 1</button>
+                            <button class="comp-btn" data-symbol="pattern_2bit" onclick="ccSelectComp('pattern_2bit')"><i data-lucide="grid"></i> 2Bit Pattern</button>
+                            <button class="comp-btn" data-symbol="pattern_3bit" onclick="ccSelectComp('pattern_3bit')"><i data-lucide="grid"></i> 3Bit Pattern</button>
+                            <button class="comp-btn" data-symbol="pattern_4bit" onclick="ccSelectComp('pattern_4bit')"><i data-lucide="grid"></i> 4Bit Pattern</button>
+
+                            <!-- Conversores & Comparadores (Imagem 2) -->
+                            <button class="comp-btn" data-symbol="a2d_level" onclick="ccSelectComp('a2d_level')"><i data-lucide="maximize-2"></i> A2D Shifter</button>
+                            <button class="comp-btn" data-symbol="d2a_level" onclick="ccSelectComp('d2a_level')"><i data-lucide="minimize-2"></i> D2A Shifter</button>
+                            <button class="comp-btn" data-symbol="bin2gray_4bit" onclick="ccSelectComp('bin2gray_4bit')"><i data-lucide="git-commit"></i> 4Bit Bin2Gray</button>
+                            <button class="comp-btn" data-symbol="gray2bin_4bit" onclick="ccSelectComp('gray2bin_4bit')"><i data-lucide="git-commit"></i> 4Bit Gray2Bin</button>
+                            <button class="comp-btn" data-symbol="comp_1bit" onclick="ccSelectComp('comp_1bit')"><i data-lucide="sliders"></i> 1Bit Comp.</button>
+                            <button class="comp-btn" data-symbol="comp_2bit" onclick="ccSelectComp('comp_2bit')"><i data-lucide="sliders"></i> 2Bit Comp.</button>
+                            <button class="comp-btn" data-symbol="comp_4bit" onclick="ccSelectComp('comp_4bit')"><i data-lucide="sliders"></i> 4Bit Comp.</button>
+                            <button class="comp-btn" data-symbol="hpri_bin_4bit" onclick="ccSelectComp('hpri_bin_4bit')"><i data-lucide="list-ordered"></i> 4Bit HPRI/BIN</button>
+                            <button class="comp-btn" data-symbol="digital_file" onclick="ccSelectComp('digital_file')"><i data-lucide="file-text"></i> Ficheiro Dig. (V)</button>
+                            <button class="comp-btn" data-symbol="digital_file2" onclick="ccSelectComp('digital_file2')"><i data-lucide="file-text"></i> Ficheiro Dig. 2</button>
+                            <button class="comp-btn" data-symbol="digi_sim" onclick="ccSelectComp('digi_sim')"><i data-lucide="play-circle"></i> Simulação Dig.</button>
+
+                            <!-- Multiplexers & Demultiplexers -->
+                            <button class="comp-btn" data-symbol="andor_4x2" onclick="ccSelectComp('andor_4x2')"><i data-lucide="layers"></i> 4x2 AndOr</button>
+                            <button class="comp-btn" data-symbol="andor_4x3" onclick="ccSelectComp('andor_4x3')"><i data-lucide="layers"></i> 4x3 AndOr</button>
+                            <button class="comp-btn" data-symbol="andor_4x4" onclick="ccSelectComp('andor_4x4')"><i data-lucide="layers"></i> 4x4 AndOr</button>
+                            <button class="comp-btn" data-symbol="mux_2to1" onclick="ccSelectComp('mux_2to1')"><i data-lucide="git-merge"></i> 2to1 Mux</button>
+                            <button class="comp-btn" data-symbol="mux_4to1" onclick="ccSelectComp('mux_4to1')"><i data-lucide="git-merge"></i> 4to1 Mux</button>
+                            <button class="comp-btn" data-symbol="mux_8to1" onclick="ccSelectComp('mux_8to1')"><i data-lucide="git-merge"></i> 8to1 Mux</button>
+                            <button class="comp-btn" data-symbol="demux_2to4" onclick="ccSelectComp('demux_2to4')"><i data-lucide="git-branch"></i> 2to4 Demux</button>
+                            <button class="comp-btn" data-symbol="demux_3to8" onclick="ccSelectComp('demux_3to8')"><i data-lucide="git-branch"></i> 3to8 Demux</button>
+                            <button class="comp-btn" data-symbol="demux_4to16" onclick="ccSelectComp('demux_4to16')"><i data-lucide="git-branch"></i> 4to16 Demux</button>
+                        </div>
+                    </div>
+
+                    <!-- Categoria 9: Componentes Baseados em Ficheiro (Imagem 3) -->
+                    <div class="cc-cat-section" id="cat_baseados_fich">
+                        <div class="palette-category" onclick="ccToggleAccordion('cat_baseados_fich')">
+                            <span class="cat-title"><i data-lucide="folder"></i> 9. BASEADOS EM FICHEIRO</span>
+                            <span class="cat-arrow">►</span>
+                        </div>
+                        <div class="palette-grid" style="display: none;">
+                            <button class="comp-btn" data-symbol="netlist_s" onclick="ccSelectComp('netlist_s')"><i data-lucide="file-code"></i> Netlist S-Param</button>
+                            <button class="comp-btn" data-symbol="file_1port" onclick="ccSelectComp('file_1port')"><i data-lucide="file"></i> Ficheiro 1-Port</button>
+                            <button class="comp-btn" data-symbol="file_2port" onclick="ccSelectComp('file_2port')"><i data-lucide="files"></i> Ficheiro 2-Port</button>
+                            <button class="comp-btn" data-symbol="file_nport" onclick="ccSelectComp('file_nport')"><i data-lucide="folder"></i> n-port S-Param</button>
+                            <button class="comp-btn" data-symbol="subcircuit" onclick="ccSelectComp('subcircuit')"><i data-lucide="box"></i> Subcircuit (Sub)</button>
+                        </div>
+                    </div>
+
+                    </div>
+            </aside>
+
+            <!-- Barra de Ferramentas interna do CCnotes -->
+            <div class="ccnotes-toolbar">
+                <button class="tool-btn active" id="cc-tool-select" onclick="ccSetTool('select')" title="Mover / Selecionar Componentes e Fios (V)"><i data-lucide="move"></i></button>
+                <button class="tool-btn" id="cc-tool-wire" onclick="ccSetTool('wire')" title="Desenhar Fio Ortogonal 90° (W)"><i data-lucide="share-2"></i></button>
+                <button class="tool-btn" id="cc-tool-eraser" onclick="ccSetTool('eraser')" title="Borracha CCnotes (Tocar em qualquer fio ou componente para apagar)"><i data-lucide="eraser"></i></button>
+
+                <div class="divider"></div>
+
+                <!-- Botão Fixo / Dim -->
+                <button id="cc-comp-mode-btn" class="btn-dim-mode active-fixo" onclick="ccToggleDimMode()" title="Alternar entre tamanho padronizado 30px ou esticar (Dim)">
+                    <i data-lucide="cpu" style="width:13px; height:13px;"></i>
+                    <span id="cc-comp-mode-text">Fixo (30px)</span>
+                </button>
+
+                <!-- Controlo de Tamanho Editável e Reposição Rápida a 30px -->
+                <div class="cc-size-control-group" title="Ajustar tamanho do componente selecionado ou repor para 30px">
+                    <span class="cc-size-label">Tam:</span>
+                    <input type="number" id="ccPartSizeInput" class="cc-size-input" value="30" min="20" max="150" step="5" onchange="ccSetPartSizeFromInput(this.value)" oninput="ccSetPartSizeFromInput(this.value)" title="Tamanho em píxeis (30px padrão)">
+                    <button class="cc-size-reset-btn" onclick="ccResetPartSize30()" title="Repor para exatamente 30px">30px</button>
+                </div>
+
+                <!-- Botão Legenda -->
+                <button id="cc-btn-label-edit" class="btn-label-edit-cc" onclick="ccToggleEditLabel()" title="Ativar / Concluir escrita da legenda">
+                    <i data-lucide="edit-3" style="width:12px; height:12px;" id="cc-icon-label-state"></i>
+                    <span id="cc-btn-label-text">Escrever Legenda</span>
+                </button>
+
+                <!-- Botão de Fórmulas no CCnotes (Ponto 5) -->
+                <button class="tool-btn" onclick="toggleWordSymbolsModal('ccnotes')" title="Inserir Fórmula ou Símbolo Elétrico no Circuito"><i data-lucide="sigma"></i></button>
+
+                <div class="divider"></div>
+
+                <button class="tool-btn" onclick="ccRotateSelected()" title="Rodar Componente 90° (R)"><i data-lucide="rotate-cw"></i></button>
+                <button class="tool-btn" onclick="ccDeleteSelected()" title="Apagar Selecionado (Del)"><i data-lucide="trash-2"></i></button>
+                <button class="tool-btn" onclick="ccClearCircuit()" title="Limpar Todo o Circuito"><i data-lucide="rotate-ccw"></i></button>
+            </div>
+
+            <!-- Área de Desenho do CCnotes -->
+            <div class="ccnotes-canvas-wrap" id="ccCanvasWrap">
+                <svg id="ccSvgCanvas" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="ccGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <circle cx="1" cy="1" r="1.2" fill="#cbd5e1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#ccGrid)"/>
+                    <g id="ccWiresLayer"></g>
+                    <g id="ccJunctionsLayer"></g>
+                    <g id="ccComponentsLayer"></g>
+                    <g id="ccAnnotationsLayer"></g>
+                    <g id="ccPreviewLayer"></g>
+                    <g id="ccSnapPinIndicator"></g>
+                </svg>
+                <input type="text" id="ccInlineLabelInput" placeholder="Ex: R1 1k" autocomplete="off" spellcheck="false">
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Principal -->
+    <script src="app.js"></script>
+</body>
+</html>

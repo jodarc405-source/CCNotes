@@ -1,0 +1,31 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+Ao desenhar fios deve dar para sair do modo de desenho de fios ao carregar no ESC e apagar ao carregar no delete, poe uma borracha para apagar ao tocar em qualquer ponto da llinha ou componente.
+
+Ao passar o circuito para o notas as bordas da caixa e o ponto azul devem desaparecer só fica o circuito.
+
+Quando os componentes rodam e a legenda fica por baixo do componente o fio passa em cima da legenda move para não acontecer.
+
+O circuito depois de passar para o notas se voltar ao circuito nao da para mover ou apagar os componentes.
+
+Coloca as formulas e os simbolos tambem no CCnotes, mete todas as formulas eletricas ordenadpela sua importancia com identificação.
+
+Insere também no menu as formas automaticas do word setas e outros.
+
+Temos de resolver o texto manuscrito e o OCR porque não reconhecem o texto manual e inserem formulas aletorias.
+
+Adiciona ao Zoom mais de 100% até 200% de 25% em 25% e o mesmo para menos em degraus de 20%.
+
+Vou-te enviar imagens de componentes a adicionar.
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.

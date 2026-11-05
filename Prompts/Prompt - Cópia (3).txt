@@ -1,0 +1,23 @@
+Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+Ao desenhar fios deve dar para ao conetar os fios só ao clicar e nao ficar com a linha selecionada, e devia dar para fazer os cantos a 90graus quando selecionar um componente que tenha do fio fazer 90 graus.
+
+Quando os componentes rodam para a vertical e a legenda fica por baixo do componente o fio passa em cima da legenda move para não acontecer.
+
+Cada vez que efetuo um novo circuito eletrico as legendas predifinidas a sua numeração deve voltar ao inicio.
+
+Coloca as formulas e os simbolos word tambem no CCnotes de desenho de circuitos, mete todas as formulas eletricas ordenadas pela sua importancia com identificação (não realizaste no ultimo prompt).
+
+Temos de resolver o texto manuscrito e o OCR porque não reconhecem o texto manual e inserem formulas aletorias. (importante ainda nao conseguiste resolver depois de varias vezes que te pedi) (não realizaste no ultimo prompt).
+
+Adiciona ao Zoom mais de 100% até 200% de 25% em 25% e o mesmo para menos em degraus de 20%, atualmente só tem os 100% e 55%.
+
+Este tópico tens de verificar as imagens que te enviei anteriormente porque nao adicionaste os componentes das imagens que enviei ao CCnotes (Vou-te enviar imagens de componentes a adicionar.) (não realizaste no ultimo prompt).
+
+O cursor deve ser sempre preto porque branco não dá par saber onde estou.
+
+Não cumpriste com a regra, tiraste nas formas perfeitas o losangulo e outras formas, volta a colocar o que tiraste e coloca ainda mais formas.
+
+Quero que utilizes o obsidian para registares os projetos e todas as alteraçoes que fazes para poderes saber o que alteraste anteriormente o meu vault é: C:\Users\leozi\Documents\Obsidian Vault\Obsidian Vault

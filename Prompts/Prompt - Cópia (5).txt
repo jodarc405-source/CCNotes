@@ -1,0 +1,27 @@
+Objetivo final: Regra: Corrige só o que vou-te indicar, não mexas no resto.
+
+Altera porque não funciona:
+
+A lista de componentes no inicio deve estar colapsada em vez de expandida.
+
+Quero na barra das ferramentas um botão para inserir caixas de texto e outras ferramentas, e a possibilidade de escolher aonde na folha inserir as caixas bem como formulas e outros.
+
+Os botões do menu devem ser mais pequenos reduz o texto exemplos: Desenhar CE, OCR Folha, OCR Laço, Tipo Folha, Imprimir, Limpar
+
+Prioritário: Quero quero que as formulas ao colocar nas folhas sejam do tipo que usamos na escola e não como escrevemos com o teclado, os símbolos não insere os símbolos está a escrever o Ohm escreve ômega. (não resolveste no ultimo prompt).
+
+Quero que na barra das ferramentas apareça o numero da folha do caderno e o + á esquerda e o menos á direita para avançar ou retroceder nas folhas e quero que no caderno dê para criar as folhas que quiser apareça as folhas 
+
+ Adiciona mais estes componentes das imagens que enviei ao CCnotes.
+
+
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.

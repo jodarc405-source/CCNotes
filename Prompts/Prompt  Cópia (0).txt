@@ -1,0 +1,94 @@
+Objetivo final: Quero que implementes este projeto com isto:
+Aqui está a lista numerada de todas as funcionalidades e implementações atualmente presentes no Mignotes (Chromebook Edition):
+
+Estrutura e Proporção A4 Fixa (1:1): Folha vertical dimensionada exatamente em 794×1123 px sem desvios de coordenadas nem atrasos de toque no Chromebook, para trabalhar no chromebook a ocupar o ecra todo quando abrir nova nota.
+
+Folhas e Padrões de Fundo (Templates): Alternância com preservação intacta entre folha Quadriculada, Pautada (com margem vermelha), Pontilhada e Lisa.
+
+Menu de Caneta Fluida, Lápis de Esboço, Marcador Fluorescente, com menu dropdown de propriedades individual com Paleta de Cores e Cor Personalizada: Botões de cor rápida (preto, azul, vermelho, verde, roxo) e seletor color picker para qualquer tonalidade, Controlo Deslizante de Espessura: Ajuste contínuo de 1 a 25 px com indicador visual em tempo real., palete de afinação de cor, Borracha de Linha Completa: Tocar em qualquer ponto de uma linha, forma ou traço apaga o elemento por inteiro, Borracha de Tinta Cirúrgica (Path-based): Apaga apenas a tinta por onde o cursor passa, sem apagar componentes nem danificar o padrão de fundo, mas apaga fios, Borracha Total: Apaga tinta, componentes e blocos de texto ao toque, etc...
+
+Menu Dropdown de Formas Perfeitas:
+
+Linha reta  perpendicular automático a 90° (0°, 90°, 180°, 270°);
+
+Círculo perfeito;
+
+Retângulo / Quadrado;
+
+Triângulo;
+
+Elipse.
+
+Snapping Magnético de Conexões (Ponto Verde): As linhas colam-se com um indicador verde as linhas e aos vértices das outras linhas.
+
+Inserir um botao passar para o CCnotes atual com estas aletraçoes de forma a desenhar o circuito electrico e depois de estar pronto poder inseri-lo na minha folha de notas, com opçao de aumentar ou diminuir e rodar .
+
+No CCnotes inserir:
+
+Menu de Simbologia Qucs de Circuitos Elétricos:
+
+Fonte DC de 2 traços (traço longo positivo e curto/grosso negativo com identificadores + e -);
+
+Fonte AC com senoide interna (~);
+
+Fonte de corrente com seta indicadora (→);
+
+Terra / Massa (GND);
+
+Resistor Zigzag (estilo US);
+
+Resistor Retangular (estilo EU / IEC);
+
+Condensador (placas paralelas);
+
+Indutor / Bobina;
+
+Interruptor elétrico;
+
+Díodo retificador;
+
+Transístor BJT NPN.
+
+Modo de Dimensionamento de Componentes (Botão Fixo / Dim):
+
+Modo Fixo: insere o componente no tamanho padronizado compacto de 30 px na grelha;
+
+Modo Dim: permite esticar e definir a dimensão do componente manualmente ao arrastar.
+
+Corte Automático de Fio (Auto-Cut): Ao sobrepor um componente a uma linha reta existente, o pedaço de linha sob o componente é automaticamente eliminado.
+
+Ferramenta de Seleção e Movimento (Move): Permite clicar e arrastar qualquer componente de circuito ou bloco de texto já colocado na folha.
+
+Rotação de Componentes e Textos a 90°: Rotação instantânea através do botão na barra ou premindo a tecla R.
+
+Botão de legenda de componentes com opçao de carregar para a legenda do componente ficar editavel e ao carregar novamente fechar a edição, os componentes ao inserir no circuito devem ter valores predifinidos como: resistencia nº 1 é R1 1K ao inserir as proximas vai aumentando a numeraçao R2, R3, etc..., a fonte de tensao V1 12V etc...
+
+Eliminação por Teclado: Teclas Delete ou Backspace removem o componente ou bloco de texto selecionado.
+
+Conversor de Escrita Manual por Laço (OCR): Ferramenta de seleção por contorno livre para circundar escrita manual e convertê-la num bloco tipográfico editável.
+
+Blocos de Texto Tipografados Editáveis: Caixas de texto arrastáveis com suporte a duplo clique para edição de texto e fórmulas.
+
+Gestão de Cadernos com Abas Internas (Separadores):
+
+Criação de novos cadernos via botão + Novo Caderno;
+
+Separação em abas internas (exemplos (Teoria, Exercícios) + Tab) dentro de cada caderno;
+
+Armazenamento individual de traços, componentes e notas por aba.
+
+Botão Limpar Folha: Limpeza completa da tinta, componentes e notas da aba atual com janela de confirmação.
+
+Impressão Calibrada A4 (window.print()): Configuração @media print a 1:1 sem margens cortadas, sem páginas em branco e ocultando todas as barras de ferramentas.
+
+Podes consultar o código da app de notas que te vou enviar para verificar algumas opçoes, nao funciona na perfeiçao mas dá para teres um ideia de algumas opçoes: C:\Users\leozi\.gemini\antigravity\scratch\circuit-notes\mignotes_chromebook_edition.html
+
+Estás num loop de objetivo. Segue estes passos em cada iteração:
+1. Analisa o progresso atual
+2. Identifica o que ainda falta
+3. Propõe o próximo passo concreto
+4. Executa o passo (se possível)
+5. Avalia se o objetivo foi atingido
+
+Se ainda não estiver completo, responde com "CONTINUAR" no final.
+Só responde "OBJETIVO CONCLUÍDO" quando realmente estiver terminado.
