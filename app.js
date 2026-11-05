@@ -219,17 +219,32 @@ function alternarTemplate() {
 }
 
 // --------------------------------------------------------
-// Controlo de Zoom Calibrado: -20% e +25% até 200% (Ponto 8)
+// Controlo de Zoom Calibrado e Contínuo (-20% e +25% até 300%)
 // --------------------------------------------------------
-function aplicarZoom() {
-    const scale = ZOOM_LEVELS[currentZoomIdx];
-    paperWrapper.style.transform = `scale(${scale})`;
-    document.getElementById('zoom-level-text').innerText = `${Math.round(scale * 100)}%`;
+let currentZoomScale = 1.0;
+
+function aplicarZoom(smoothScale = null) {
+    if (smoothScale !== null) {
+        currentZoomScale = Math.max(0.4, Math.min(3.0, smoothScale));
+        // Atualiza o índice mais próximo do nível
+        let closestIdx = 0, minDiff = Infinity;
+        ZOOM_LEVELS.forEach((z, idx) => {
+            const diff = Math.abs(z - currentZoomScale);
+            if (diff < minDiff) { minDiff = diff; closestIdx = idx; }
+        });
+        currentZoomIdx = closestIdx;
+    } else {
+        currentZoomScale = ZOOM_LEVELS[currentZoomIdx] || 1.0;
+    }
+    paperWrapper.style.transform = `scale(${currentZoomScale})`;
+    const txt = document.getElementById('zoom-level-text');
+    if (txt) txt.innerText = `${Math.round(currentZoomScale * 100)}%`;
 }
 
 function zoomAumentar() {
     if (currentZoomIdx < ZOOM_LEVELS.length - 1) {
         currentZoomIdx++;
+        currentZoomScale = ZOOM_LEVELS[currentZoomIdx];
         aplicarZoom();
     }
 }
@@ -237,12 +252,14 @@ function zoomAumentar() {
 function zoomDiminuir() {
     if (currentZoomIdx > 0) {
         currentZoomIdx--;
+        currentZoomScale = ZOOM_LEVELS[currentZoomIdx];
         aplicarZoom();
     }
 }
 
 function zoomReset() {
     currentZoomIdx = 3; // 1.0 (100%)
+    currentZoomScale = 1.0;
     aplicarZoom();
 }
 
@@ -610,9 +627,30 @@ function handleEraser(x, y) {
 
 // --------------------------------------------------------
 // Eventos do Canvas Principal (Mignotes)
+// Suporte total a Stylus (escrita fina) e Gestos Táteis com Dedos (Pan e Pinch-to-zoom sem riscos)
 // --------------------------------------------------------
+const activeTouchMap = new Map();
+let touchPinchDist0 = 0;
+let touchPinchZoom0 = 1.0;
+let touchLastMid = null;
+
 paintCanvas.addEventListener('pointerdown', (e) => {
     closeAllDropdowns();
+
+    // Toque com dedos/palma da mão: reservado estritamente para navegação fluida (arrastar e ampliar/reduzir)
+    if (e.pointerType === 'touch') {
+        activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (activeTouchMap.size === 1) {
+            touchLastMid = { x: e.clientX, y: e.clientY };
+        } else if (activeTouchMap.size >= 2) {
+            const pts = Array.from(activeTouchMap.values());
+            touchPinchDist0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            touchPinchZoom0 = currentZoomScale;
+            touchLastMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+        }
+        return; // Nunca inicia traço com dedos, impedindo riscos pretos indesejados!
+    }
+
     const raw = getCoordinates(e);
     strokeStartTime = Date.now();
     lastCoord = raw;
@@ -625,6 +663,7 @@ paintCanvas.addEventListener('pointerdown', (e) => {
 
     // Se estiver com a ferramenta de Texto ativa, cria a caixa onde clicou
     if (currentTool === 'text') {
+        cadernoSalvarHistorico();
         criarBlocoTexto('Novo texto...', raw.x, raw.y, 18, 0);
         setTool('select');
         salvarNoLocalStorage();
@@ -641,6 +680,7 @@ paintCanvas.addEventListener('pointerdown', (e) => {
     }
 
     if (currentTool === 'eraser') {
+        cadernoSalvarHistorico();
         isDrawing = true;
         handleEraser(raw.x, raw.y);
         return;
@@ -649,6 +689,7 @@ paintCanvas.addEventListener('pointerdown', (e) => {
     if (currentTool === 'select') {
         const shape = findShapeAt(raw.x, raw.y);
         if (shape) {
+            cadernoSalvarHistorico();
             selectedShapeStroke = shape;
             selectedElement = null;
             document.querySelectorAll('.text-block, .circuit-placed-block').forEach(b => b.classList.remove('selected'));
@@ -672,6 +713,7 @@ paintCanvas.addEventListener('pointerdown', (e) => {
     }
 
     isDrawing = true;
+    cadernoSalvarHistorico();
 
     if (currentTool === 'shape') {
         const snap = checkMagneticSnap(raw.x, raw.y);
@@ -697,6 +739,9 @@ paintCanvas.addEventListener('pointerdown', (e) => {
 });
 
 paintCanvas.addEventListener('pointermove', (e) => {
+    // Toque com os dedos: nunca desenha, navegação tátil é delegada ao window
+    if (e.pointerType === 'touch') return;
+
     const raw = getCoordinates(e);
 
     if (isDrawing && currentTool === 'select' && selectedShapeStroke && shapeDragOffset) {
@@ -790,7 +835,59 @@ paintCanvas.addEventListener('pointermove', (e) => {
     }
 });
 
+// Manipulação Global de Gestos Táteis (1 Dedo = Pan / 2 Dedos = Pinch-to-Zoom Contínuo)
+window.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') {
+        if (!activeTouchMap.has(e.pointerId)) return;
+        activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const ws = document.getElementById('workspace');
+
+        if (activeTouchMap.size === 1) {
+            // 1 dedo: arrastar a folha para os lados e para cima/baixo (Pan)
+            const currentPt = activeTouchMap.get(e.pointerId);
+            if (touchLastMid && ws) {
+                const dx = currentPt.x - touchLastMid.x;
+                const dy = currentPt.y - touchLastMid.y;
+                ws.scrollLeft -= dx;
+                ws.scrollTop -= dy;
+            }
+            touchLastMid = { x: currentPt.x, y: currentPt.y };
+        } else if (activeTouchMap.size >= 2) {
+            // 2 dedos: pinch-to-zoom contínuo (ampliar e reduzir a folha) + deslocamento
+            const pts = Array.from(activeTouchMap.values());
+            const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            const currentMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+
+            if (touchPinchDist0 > 0) {
+                const scaleFactor = currentDist / touchPinchDist0;
+                const targetZoom = Math.max(0.4, Math.min(3.0, touchPinchZoom0 * scaleFactor));
+                aplicarZoom(targetZoom);
+            }
+
+            if (touchLastMid && ws) {
+                const dx = currentMid.x - touchLastMid.x;
+                const dy = currentMid.y - touchLastMid.y;
+                ws.scrollLeft -= dx;
+                ws.scrollTop -= dy;
+            }
+            touchLastMid = currentMid;
+        }
+    }
+});
+
 window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch') {
+        activeTouchMap.delete(e.pointerId);
+        if (activeTouchMap.size === 1) {
+            const remaining = Array.from(activeTouchMap.values())[0];
+            touchLastMid = { x: remaining.x, y: remaining.y };
+        } else if (activeTouchMap.size === 0) {
+            touchLastMid = null;
+            touchPinchDist0 = 0;
+        }
+        return;
+    }
+
     if (!isDrawing) return;
     isDrawing = false;
     clearTimeout(holdTimer);
@@ -843,25 +940,77 @@ window.addEventListener('pointerup', (e) => {
     }
 });
 
+window.addEventListener('pointercancel', (e) => {
+    if (e.pointerType === 'touch') {
+        activeTouchMap.delete(e.pointerId);
+        if (activeTouchMap.size === 0) {
+            touchLastMid = null;
+            touchPinchDist0 = 0;
+        }
+    }
+});
+
 // --------------------------------------------------------
 // Motor de OCR Fiel dos Traços Manuscritos (Reconhecimento Real Online/Offline)
-// NUNCA mais insere fórmulas aleatórias!
 // --------------------------------------------------------
+
+// Correção Ortográfica Inteligente para Escrita e Apontamentos Escolares/Técnicos
+function corrigirOrtografia(texto) {
+    if (!texto) return '';
+    let t = texto;
+
+    // Correções de confusões de caracteres comuns de OCR dentro de palavras
+    t = t.replace(/(\b[a-záàâãéèêíóôõúç]+)0([a-záàâãéèêíóôõúç]+\b)/gi, '$1o$2');
+    t = t.replace(/(\b[a-záàâãéèêíóôõúç]+)1([a-záàâãéèêíóôõúç]+\b)/gi, '$1i$2');
+    t = t.replace(/(\b[a-záàâãéèêíóôõúç]+)5([a-záàâãéèêíóôõúç]+\b)/gi, '$1s$2');
+
+    // Dicionário de termos comuns escolares e técnicos com acentuação e ortografia correta
+    const dic = {
+        'tensao': 'tensão', 'tensoes': 'tensões',
+        'resistencia': 'resistência', 'resistencias': 'resistências',
+        'potencia': 'potência', 'potencias': 'potências',
+        'eletrica': 'elétrica', 'eletrico': 'elétrico', 'eletricas': 'elétricas', 'eletricos': 'elétricos',
+        'circuito': 'circuito', 'circuitos': 'circuitos',
+        'corrente': 'corrente', 'correntes': 'correntes',
+        'indutancia': 'indutância', 'capacitancia': 'capacitância',
+        'frequencia': 'frequência', 'frequencias': 'frequências',
+        'calculo': 'cálculo', 'calculos': 'cálculos',
+        'formula': 'fórmula', 'formulas': 'fórmulas',
+        'fisica': 'física', 'quimica': 'química', 'matematica': 'matemática',
+        'laboratorio': 'laboratório', 'relatorio': 'relatório',
+        'exercicio': 'exercício', 'exercicios': 'exercícios',
+        'horario': 'horário', 'horarios': 'horários',
+        'modulo': 'módulo', 'modulos': 'módulos',
+        'teoria': 'teoria', 'teorico': 'teórico', 'teoricos': 'teóricos',
+        'ligacao': 'ligação', 'ligacoes': 'ligações',
+        'conclusao': 'conclusão', 'conclusoes': 'conclusões',
+        'diodo': 'díodo', 'diodos': 'díodos',
+        'analise': 'análise', 'ohmico': 'óhmico'
+    };
+
+    for (const [err, corr] of Object.entries(dic)) {
+        const re = new RegExp('\\b' + err + '\\b', 'gi');
+        t = t.replace(re, corr);
+    }
+    return t;
+}
 
 // ========================================================
 // Formatação Gramatical Inteligente para OCR
-// Regras: 
+// Regras Estritas: 
 // 1. A primeira letra é sempre maiúscula (início de frase/parágrafo).
-// 2. Respeita normas gramaticais (nomes próprios, países, cientistas).
+// 2. Respeita normas gramaticais (nomes próprios, países, cientistas com maiúscula inicial).
 // 3. O restante é estritamente minúsculo.
 // ========================================================
 function formatarTextoGramatical(texto) {
     if (!texto) return '';
+    // Aplica correção ortográfica primeiro
+    let s = corrigirOrtografia(texto.trim());
     // Converte tudo para minúsculas primeiro para garantir que o resto fica estritamente minúsculo
-    let s = texto.trim().toLowerCase();
+    s = s.toLowerCase();
 
     // 1. Primeira letra de cada frase em maiúscula (início do texto, quebras de linha ou após . ! ?)
-    s = s.replace(/(^|[.!?\n]\s*)([a-záàâãéèêíïóôõöúç])/gu, (match, prefix, char) => {
+    s = s.replace(/(^|[.!?\n]\s*)([a-záàâãéèêíóôõúç])/gu, (match, prefix, char) => {
         return prefix + char.toUpperCase();
     });
 
@@ -962,6 +1111,11 @@ function extrairTextoFielDosTracos(strokesNaArea, bounds) {
 async function reconhecerEscritaManuscrita(strokes, bounds) {
     if (!strokes || strokes.length === 0) return "";
 
+    const minX = bounds.minX ?? 0;
+    const minY = bounds.minY ?? 0;
+    const areaW = Math.max(100, Math.round((bounds.maxX - minX) + 30));
+    const areaH = Math.max(60, Math.round((bounds.maxY - minY) + 30));
+
     const ink = [];
     strokes.forEach(s => {
         if (s.segments) {
@@ -969,8 +1123,9 @@ async function reconhecerEscritaManuscrita(strokes, bounds) {
                 if (seg.length > 1) {
                     const xs = [], ys = [], ts = [];
                     seg.forEach((pt, i) => {
-                        xs.push(Math.round(pt.x));
-                        ys.push(Math.round(pt.y));
+                        // Normalização rigorosa em relação aos limites da área de escrita
+                        xs.push(Math.round(Math.max(5, pt.x - minX + 15)));
+                        ys.push(Math.round(Math.max(5, pt.y - minY + 15)));
                         ts.push(i * 20);
                     });
                     ink.push([xs, ys, ts]);
@@ -979,7 +1134,7 @@ async function reconhecerEscritaManuscrita(strokes, bounds) {
         }
     });
 
-    // 1. Tentar Google Handwriting Input API (com endpoints redundantes e tempo de resposta otimizado)
+    // 1. Tentar Google Handwriting Input API (com coordenadas normalizadas e endpoints redundantes)
     if (ink.length > 0) {
         const endpoints = [
             'https://inputtools.google.com/request?ime=handwriting&app=mobilesearch',
@@ -998,8 +1153,8 @@ async function reconhecerEscritaManuscrita(strokes, bounds) {
                         options: 'enable_pre_space',
                         requests: [{
                             writing_guide: {
-                                writing_area_width: Math.max(100, Math.round(bounds.maxX - bounds.minX)),
-                                writing_area_height: Math.max(60, Math.round(bounds.maxY - bounds.minY))
+                                writing_area_width: areaW,
+                                writing_area_height: areaH
                             },
                             ink: ink,
                             language: 'pt'
@@ -1448,7 +1603,790 @@ function editCircuitBlock(btn) {
 }
 
 // --------------------------------------------------------
-// Rotação e Eliminação por Teclado
+// Histórico e Desfazer/Refazer (Undo/Redo) para Caderno e CCnotes
+// --------------------------------------------------------
+const cadernoUndoStack = [];
+const cadernoRedoStack = [];
+let cadernoClipboard = null;
+
+function cadernoSnapshot() {
+    guardarEstadoAtual();
+    const tabData = getTabData(activeNotebook, activeTab);
+    const pIdx = tabData.currentPage || 0;
+    return JSON.stringify(tabData.pages[pIdx]);
+}
+
+function cadernoSalvarHistorico() {
+    try {
+        const snap = cadernoSnapshot();
+        if (cadernoUndoStack.length === 0 || cadernoUndoStack[cadernoUndoStack.length - 1] !== snap) {
+            cadernoUndoStack.push(snap);
+            if (cadernoUndoStack.length > 35) cadernoUndoStack.shift();
+            cadernoRedoStack.length = 0;
+        }
+    } catch(e) {}
+}
+
+function cadernoDesfazer() {
+    if (cadernoUndoStack.length === 0) return;
+    const cur = cadernoSnapshot();
+    cadernoRedoStack.push(cur);
+    const prev = cadernoUndoStack.pop();
+    cadernoRestaurarSnapshot(prev);
+}
+
+function cadernoRefazer() {
+    if (cadernoRedoStack.length === 0) return;
+    const cur = cadernoSnapshot();
+    cadernoUndoStack.push(cur);
+    const next = cadernoRedoStack.pop();
+    cadernoRestaurarSnapshot(next);
+}
+
+function cadernoRestaurarSnapshot(jsonStr) {
+    if (!jsonStr) return;
+    const pageData = JSON.parse(jsonStr);
+    const tabData = getTabData(activeNotebook, activeTab);
+    const pIdx = tabData.currentPage || 0;
+    tabData.pages[pIdx] = pageData;
+
+    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.remove());
+
+    templateIdx = pageData.templateIdx ?? 0;
+    currentStrokes = JSON.parse(JSON.stringify(pageData.strokes || []));
+
+    (pageData.blocks || []).forEach(b => {
+        criarBlocoTexto(b.text, b.left, b.top, b.fontSize || 18, b.rotation || 0);
+    });
+
+    (pageData.circuits || []).forEach(c => {
+        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData);
+    });
+
+    (pageData.postits || []).forEach(p => restaurarPostIt(p));
+    (pageData.markers || []).forEach(m => restaurarMarcadorPagina(m));
+    (pageData.labels || []).forEach(l => restaurarEtiquetaCard(l));
+    (pageData.templates || []).forEach(t => restaurarTemplateBlock(t));
+
+    renderBackground();
+    redrawStrokes();
+    salvarNoLocalStorage();
+}
+
+function cadernoCopiar() {
+    const selBlock = document.querySelector('.text-block.selected, .circuit-placed-block.selected, .placed-postit.selected, .placed-page-marker.selected, .placed-label-card.selected, .placed-template-block.selected');
+    if (selBlock) {
+        if (selBlock.classList.contains('text-block')) {
+            cadernoClipboard = {
+                type: 'text',
+                text: selBlock.dataset.raw || selBlock.innerText,
+                fontSize: parseInt(selBlock.style.fontSize) || 18,
+                rotation: parseInt(selBlock.dataset.rotation) || 0
+            };
+        } else if (selBlock.classList.contains('circuit-placed-block')) {
+            let cData = null;
+            try { if (selBlock.dataset.circuitData) cData = JSON.parse(selBlock.dataset.circuitData); } catch(e){}
+            cadernoClipboard = {
+                type: 'circuit',
+                svg: selBlock.dataset.svgRaw || '',
+                scale: parseFloat(selBlock.dataset.scale) || 1,
+                rotation: parseInt(selBlock.dataset.rotation) || 0,
+                circuitData: cData
+            };
+        } else if (selBlock.classList.contains('placed-postit')) {
+            const content = selBlock.querySelector('.postit-content');
+            cadernoClipboard = {
+                type: 'postit',
+                color: selBlock.dataset.color || 'yellow',
+                html: content ? content.innerHTML : '',
+                width: selBlock.offsetWidth,
+                height: selBlock.offsetHeight
+            };
+        } else if (selBlock.classList.contains('placed-page-marker')) {
+            const txt = selBlock.querySelector('.marker-text');
+            cadernoClipboard = {
+                type: 'marker',
+                color: selBlock.dataset.color || 'yellow',
+                text: txt ? txt.innerText : ''
+            };
+        } else if (selBlock.classList.contains('placed-label-card')) {
+            const vals = Array.from(selBlock.querySelectorAll('.label-val')).map(v => v.innerText);
+            cadernoClipboard = {
+                type: 'label',
+                labelType: selBlock.dataset.type || 'escola',
+                vals: vals
+            };
+        } else if (selBlock.classList.contains('placed-template-block')) {
+            cadernoClipboard = {
+                type: 'template',
+                templateType: selBlock.dataset.templateType || 'horario',
+                html: selBlock.innerHTML
+            };
+        }
+        return;
+    }
+
+    if (selectedShapeStroke) {
+        cadernoClipboard = {
+            type: 'stroke',
+            stroke: JSON.parse(JSON.stringify(selectedShapeStroke))
+        };
+    }
+}
+
+function cadernoCortar() {
+    cadernoCopiar();
+    cadernoSalvarHistorico();
+    const selBlock = document.querySelector('.text-block.selected, .circuit-placed-block.selected, .placed-postit.selected, .placed-page-marker.selected, .placed-label-card.selected, .placed-template-block.selected');
+    if (selBlock) {
+        selBlock.remove();
+        salvarNoLocalStorage();
+    } else if (selectedShapeStroke) {
+        currentStrokes = currentStrokes.filter(s => s !== selectedShapeStroke);
+        selectedShapeStroke = null;
+        redrawStrokes();
+        salvarNoLocalStorage();
+    }
+}
+
+function cadernoColar() {
+    if (!cadernoClipboard) return;
+    cadernoSalvarHistorico();
+
+    const offset = 25;
+    if (cadernoClipboard.type === 'text') {
+        criarBlocoTexto(cadernoClipboard.text, 100 + offset, 150 + offset, cadernoClipboard.fontSize, cadernoClipboard.rotation);
+    } else if (cadernoClipboard.type === 'circuit') {
+        criarBlocoCircuitoNaFolha(cadernoClipboard.svg, 100 + offset, 150 + offset, cadernoClipboard.scale, cadernoClipboard.rotation, cadernoClipboard.circuitData);
+    } else if (cadernoClipboard.type === 'postit') {
+        const p = inserirPostIt(cadernoClipboard.color, 'Post-it', 120 + offset, 160 + offset);
+        if (p) {
+            const cnt = p.querySelector('.postit-content');
+            if (cnt) cnt.innerHTML = cadernoClipboard.html;
+        }
+    } else if (cadernoClipboard.type === 'marker') {
+        inserirMarcadorPagina(cadernoClipboard.color, cadernoClipboard.text, 20 + offset, 100 + offset);
+    } else if (cadernoClipboard.type === 'label') {
+        restaurarEtiquetaCard({ type: cadernoClipboard.labelType, left: 100 + offset, top: 100 + offset, vals: cadernoClipboard.vals });
+    } else if (cadernoClipboard.type === 'template') {
+        restaurarTemplateBlock({ templateType: cadernoClipboard.templateType, left: 40 + offset, top: 100 + offset, html: cadernoClipboard.html });
+    } else if (cadernoClipboard.type === 'stroke') {
+        const s = JSON.parse(JSON.stringify(cadernoClipboard.stroke));
+        if (s.x0 !== undefined) { s.x0 += offset; s.x1 += offset; }
+        if (s.y0 !== undefined) { s.y0 += offset; s.y1 += offset; }
+        currentStrokes.push(s);
+        selectedShapeStroke = s;
+        redrawStrokes();
+    }
+    salvarNoLocalStorage();
+}
+
+// Histórico e Operações para CCnotes
+const ccUndoStack = [];
+const ccRedoStack = [];
+let ccClipboard = null;
+
+function ccSalvarHistorico() {
+    try {
+        const snap = JSON.stringify(ccState);
+        if (ccUndoStack.length === 0 || ccUndoStack[ccUndoStack.length - 1] !== snap) {
+            ccUndoStack.push(snap);
+            if (ccUndoStack.length > 35) ccUndoStack.shift();
+            ccRedoStack.length = 0;
+        }
+    } catch(e) {}
+}
+
+function ccDesfazer() {
+    if (ccUndoStack.length === 0) return;
+    ccRedoStack.push(JSON.stringify(ccState));
+    const prev = JSON.parse(ccUndoStack.pop());
+    ccState.parts = prev.parts || [];
+    ccState.wires = prev.wires || [];
+    ccState.annotations = prev.annotations || [];
+    ccSelectedPart = null;
+    ccSelectedWire = null;
+    ccSelectedAnnotation = null;
+    ccUpdateLabelButton();
+    ccRenderAll();
+}
+
+function ccRefazer() {
+    if (ccRedoStack.length === 0) return;
+    ccUndoStack.push(JSON.stringify(ccState));
+    const next = JSON.parse(ccRedoStack.pop());
+    ccState.parts = next.parts || [];
+    ccState.wires = next.wires || [];
+    ccState.annotations = next.annotations || [];
+    ccSelectedPart = null;
+    ccSelectedWire = null;
+    ccSelectedAnnotation = null;
+    ccUpdateLabelButton();
+    ccRenderAll();
+}
+
+function ccCopiar() {
+    if (ccSelectedPart) {
+        ccClipboard = { type: 'part', data: JSON.parse(JSON.stringify(ccSelectedPart)) };
+    } else if (ccSelectedWire) {
+        ccClipboard = { type: 'wire', data: JSON.parse(JSON.stringify(ccSelectedWire)) };
+    } else if (ccSelectedAnnotation) {
+        ccClipboard = { type: 'annotation', data: JSON.parse(JSON.stringify(ccSelectedAnnotation)) };
+    }
+}
+
+function ccCortar() {
+    if (!ccSelectedPart && !ccSelectedWire && !ccSelectedAnnotation) return;
+    ccSalvarHistorico();
+    ccCopiar();
+    ccDeleteSelected();
+}
+
+function ccColar() {
+    if (!ccClipboard) return;
+    ccSalvarHistorico();
+
+    if (ccClipboard.type === 'part') {
+        const p = JSON.parse(JSON.stringify(ccClipboard.data));
+        p.id = ccUid();
+        p.x = (p.x || 100) + 20;
+        p.y = (p.y || 100) + 20;
+        p.label = ccGetNextLabel(p.symbol);
+        ccState.parts.push(p);
+        ccSelectedPart = p;
+        ccSelectedWire = null;
+        ccSelectedAnnotation = null;
+    } else if (ccClipboard.type === 'wire') {
+        const w = JSON.parse(JSON.stringify(ccClipboard.data));
+        w.x1 += 20; w.y1 += 20;
+        w.x2 += 20; w.y2 += 20;
+        ccState.wires.push(w);
+        ccSelectedWire = w;
+        ccSelectedPart = null;
+        ccSelectedAnnotation = null;
+    } else if (ccClipboard.type === 'annotation') {
+        const a = JSON.parse(JSON.stringify(ccClipboard.data));
+        a.id = ccUid();
+        a.x = (a.x || 100) + 20;
+        a.y = (a.y || 100) + 20;
+        ccState.annotations.push(a);
+        ccSelectedAnnotation = a;
+        ccSelectedPart = null;
+        ccSelectedWire = null;
+    }
+    ccUpdateLabelButton();
+    ccRenderAll();
+}
+
+// --------------------------------------------------------
+// Post-its, Marcadores de Página e Etiquetas Escolares/Trabalho
+// --------------------------------------------------------
+function togglePostItModal() {
+    const modal = document.getElementById('postItModal');
+    if (modal) modal.classList.toggle('active');
+}
+
+function inserirPostIt(cor = 'yellow', nomeCor = 'Post-it Amarelo', left = 120, top = 160) {
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = `placed-postit postit-${cor}`;
+    div.dataset.color = cor;
+    div.style.left = left + 'px';
+    div.style.top = top + 'px';
+
+    div.innerHTML = `
+        <div class="postit-bar">
+            <span class="postit-title">📌 ${nomeCor}</span>
+            <button class="postit-btn-del" onclick="this.closest('.placed-postit').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Apagar Post-it">✕</button>
+        </div>
+        <div class="postit-content" contenteditable="true" spellcheck="true" placeholder="Escrever nota...">Nota rápida...</div>
+    `;
+
+    ativarInteracaoPostIt(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+    return div;
+}
+
+function restaurarPostIt(p) {
+    const div = document.createElement('div');
+    div.className = `placed-postit postit-${p.color || 'yellow'}`;
+    div.dataset.color = p.color || 'yellow';
+    div.style.left = (p.left || 120) + 'px';
+    div.style.top = (p.top || 160) + 'px';
+    if (p.width) div.style.width = p.width + 'px';
+    if (p.height) div.style.height = p.height + 'px';
+
+    div.innerHTML = `
+        <div class="postit-bar">
+            <span class="postit-title">📌 Post-it</span>
+            <button class="postit-btn-del" onclick="this.closest('.placed-postit').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Apagar Post-it">✕</button>
+        </div>
+        <div class="postit-content" contenteditable="true" spellcheck="true">${p.html || 'Nota rápida...'}</div>
+    `;
+
+    ativarInteracaoPostIt(div);
+    placedBlocksContainer.appendChild(div);
+}
+
+function ativarInteracaoPostIt(div) {
+    let isDragging = false, ox = 0, oy = 0;
+
+    div.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.postit-btn-del, .postit-content')) return;
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedElement = div;
+
+        isDragging = true;
+        const pos = getCoordinates(e);
+        ox = pos.x - (parseFloat(div.style.left) || 0);
+        oy = pos.y - (parseFloat(div.style.top) || 0);
+        e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const pos = getCoordinates(e);
+        div.style.left = Math.max(0, Math.min(A4_WIDTH - 50, pos.x - ox)) + 'px';
+        div.style.top = Math.max(0, Math.min(A4_HEIGHT - 50, pos.y - oy)) + 'px';
+    });
+
+    window.addEventListener('pointerup', () => {
+        if (isDragging) {
+            isDragging = false;
+            salvarNoLocalStorage();
+        }
+    });
+}
+
+function inserirMarcadorPagina(cor = 'urgente', texto = 'Urgente', left = 20, top = 120) {
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = `placed-page-marker marker-${cor}`;
+    div.dataset.color = cor;
+    div.style.left = left + 'px';
+    div.style.top = top + 'px';
+
+    div.innerHTML = `
+        <span class="marker-ribbon">🏷️</span>
+        <span class="marker-text" contenteditable="true">${texto}</span>
+        <button class="marker-btn-del" onclick="this.closest('.placed-page-marker').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Marcador">✕</button>
+    `;
+
+    ativarInteracaoMarcador(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+    return div;
+}
+
+function restaurarMarcadorPagina(m) {
+    const div = document.createElement('div');
+    div.className = `placed-page-marker marker-${m.color || 'urgente'}`;
+    div.dataset.color = m.color || 'urgente';
+    div.style.left = (m.left || 20) + 'px';
+    div.style.top = (m.top || 120) + 'px';
+
+    div.innerHTML = `
+        <span class="marker-ribbon">🏷️</span>
+        <span class="marker-text" contenteditable="true">${m.text || 'Marcador'}</span>
+        <button class="marker-btn-del" onclick="this.closest('.placed-page-marker').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Marcador">✕</button>
+    `;
+
+    ativarInteracaoMarcador(div);
+    placedBlocksContainer.appendChild(div);
+}
+
+function ativarInteracaoMarcador(div) {
+    let isDragging = false, ox = 0, oy = 0;
+
+    div.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.marker-btn-del, .marker-text')) return;
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedElement = div;
+
+        isDragging = true;
+        const pos = getCoordinates(e);
+        ox = pos.x - (parseFloat(div.style.left) || 0);
+        oy = pos.y - (parseFloat(div.style.top) || 0);
+        e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const pos = getCoordinates(e);
+        div.style.left = Math.max(0, Math.min(A4_WIDTH - 40, pos.x - ox)) + 'px';
+        div.style.top = Math.max(0, Math.min(A4_HEIGHT - 30, pos.y - oy)) + 'px';
+    });
+
+    window.addEventListener('pointerup', () => {
+        if (isDragging) {
+            isDragging = false;
+            salvarNoLocalStorage();
+        }
+    });
+}
+
+function inserirEtiquetaCard(tipo = 'escola', left = 60, top = 80) {
+    cadernoSalvarHistorico();
+    const curDate = new Date().toLocaleDateString('pt-PT');
+    return restaurarEtiquetaCard({ type: tipo, left, top, vals: ['Aluno / Utilizador', tipo === 'escola' ? '12º A / Nº 15' : 'Dpto. Técnico', tipo === 'escola' ? 'Eletrotecnia e Circuitos' : 'Engenharia', curDate] });
+}
+
+function restaurarEtiquetaCard(l) {
+    const div = document.createElement('div');
+    const tipo = l.type || 'escola';
+    div.className = `placed-label-card label-${tipo}`;
+    div.dataset.type = tipo;
+    div.style.left = (l.left || 60) + 'px';
+    div.style.top = (l.top || 80) + 'px';
+
+    const title = tipo === 'escola' ? '🎓 IDENTIFICAÇÃO ESCOLAR' : (tipo === 'trabalho' ? '💼 FICHA DE TRABALHO' : '📁 PROJETO / MÓDULO');
+    const f2 = tipo === 'escola' ? 'Turma / Nº:' : (tipo === 'trabalho' ? 'Departamento:' : 'Código:');
+    const f3 = tipo === 'escola' ? 'Disciplina:' : (tipo === 'trabalho' ? 'Função:' : 'Módulo:');
+    const vals = l.vals || ['Aluno / Utilizador', '12º A / Nº 15', 'Eletrotecnia e Circuitos', new Date().toLocaleDateString('pt-PT')];
+
+    div.innerHTML = `
+        <div class="label-card-header">
+            <span>${title}</span>
+            <button class="label-btn-del" onclick="this.closest('.placed-label-card').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Etiqueta">✕</button>
+        </div>
+        <div class="label-card-body">
+            <div class="label-row"><span class="label-tag">Nome:</span><span class="label-val" contenteditable="true">${vals[0] || ''}</span></div>
+            <div class="label-row"><span class="label-tag">${f2}</span><span class="label-val" contenteditable="true">${vals[1] || ''}</span></div>
+            <div class="label-row"><span class="label-tag">${f3}</span><span class="label-val" contenteditable="true">${vals[2] || ''}</span></div>
+            <div class="label-row"><span class="label-tag">Data:</span><span class="label-val" contenteditable="true">${vals[3] || ''}</span></div>
+        </div>
+    `;
+
+    ativarInteracaoEtiqueta(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+    return div;
+}
+
+function ativarInteracaoEtiqueta(div) {
+    let isDragging = false, ox = 0, oy = 0;
+
+    div.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.label-btn-del, .label-val')) return;
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedElement = div;
+
+        isDragging = true;
+        const pos = getCoordinates(e);
+        ox = pos.x - (parseFloat(div.style.left) || 0);
+        oy = pos.y - (parseFloat(div.style.top) || 0);
+        e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const pos = getCoordinates(e);
+        div.style.left = Math.max(0, Math.min(A4_WIDTH - 80, pos.x - ox)) + 'px';
+        div.style.top = Math.max(0, Math.min(A4_HEIGHT - 60, pos.y - oy)) + 'px';
+    });
+
+    window.addEventListener('pointerup', () => {
+        if (isDragging) {
+            isDragging = false;
+            salvarNoLocalStorage();
+        }
+    });
+}
+
+// --------------------------------------------------------
+// Menu Criar & Templates Editáveis (Horário, Exercícios, Laboratório, Planeamento, Ficheiro)
+// --------------------------------------------------------
+function toggleCriarDropdown(e) {
+    if (e) e.stopPropagation();
+    const m = document.getElementById('menuCriarDropdown');
+    if (m) m.classList.toggle('open');
+}
+
+function criarTemplateHorario() {
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = 'placed-template-block template-horario';
+    div.dataset.templateType = 'horario';
+    div.style.left = '40px';
+    div.style.top = '100px';
+
+    div.innerHTML = `
+        <div class="template-header">
+            <span class="template-title">📅 HORÁRIO SEMANAL / ESCOLAR</span>
+            <div class="template-actions">
+                <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Template">✕</button>
+            </div>
+        </div>
+        <table class="template-table">
+            <thead>
+                <tr>
+                    <th style="width:70px;">Hora</th>
+                    <th>Segunda</th>
+                    <th>Terça</th>
+                    <th>Quarta</th>
+                    <th>Quinta</th>
+                    <th>Sexta</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>08:30 - 09:30</td><td contenteditable="true">Eletrotecnia</td><td contenteditable="true">Matemática</td><td contenteditable="true">Laboratório</td><td contenteditable="true">Física</td><td contenteditable="true">Sistemas</td></tr>
+                <tr><td>09:35 - 10:35</td><td contenteditable="true">Eletrotecnia</td><td contenteditable="true">Matemática</td><td contenteditable="true">Laboratório</td><td contenteditable="true">Física</td><td contenteditable="true">Sistemas</td></tr>
+                <tr><td>10:50 - 11:50</td><td contenteditable="true">Circuitos</td><td contenteditable="true">Português</td><td contenteditable="true">Eletrónica</td><td contenteditable="true">Química</td><td contenteditable="true">Programação</td></tr>
+                <tr><td>11:55 - 12:55</td><td contenteditable="true">Circuitos</td><td contenteditable="true">Inglês</td><td contenteditable="true">Eletrónica</td><td contenteditable="true">Filosofia</td><td contenteditable="true">Programação</td></tr>
+                <tr><td>14:00 - 15:30</td><td contenteditable="true">Oficina</td><td contenteditable="true">Estudo</td><td contenteditable="true">Projeto</td><td contenteditable="true">Educação Fís.</td><td contenteditable="true">Apoio</td></tr>
+                <tr><td>15:45 - 17:15</td><td contenteditable="true">Oficina</td><td contenteditable="true">Estudo</td><td contenteditable="true">Projeto</td><td contenteditable="true">TIC</td><td contenteditable="true">Revisão</td></tr>
+            </tbody>
+        </table>
+    `;
+    ativarInteracaoTemplate(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+}
+
+function criarTemplateExercicios() {
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = 'placed-template-block template-exercicios';
+    div.dataset.templateType = 'exercicios';
+    div.style.left = '40px';
+    div.style.top = '100px';
+
+    div.innerHTML = `
+        <div class="template-header">
+            <span class="template-title">📝 FOLHA DE EXERCÍCIOS / RESUMO TEÓRICO</span>
+            <div class="template-actions">
+                <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Template">✕</button>
+            </div>
+        </div>
+        <div class="template-body">
+            <div class="template-section">
+                <div class="template-section-title">Enunciado do Problema / Teoria:</div>
+                <div class="template-editable-box" contenteditable="true">Escreva aqui o enunciado do exercício ou apontamento teórico...</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title">Dados & Fórmulas Aplicadas:</div>
+                <div class="template-editable-box" contenteditable="true">U = R · I | P = U · I | R_total = R1 + R2</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title">Resolução & Desenvolvimento:</div>
+                <div class="template-editable-box" contenteditable="true">1. Cálculo das grandezas fundamentais...\n2. Aplicação das leis de Kirchhoff...</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title" style="color:#10b981;">Resultado Final:</div>
+                <div class="template-editable-box" contenteditable="true" style="font-weight:700;">I = 2,5 A | U = 12 V | P = 30 W</div>
+            </div>
+        </div>
+    `;
+    ativarInteracaoTemplate(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+}
+
+function criarTemplateLaboratorio() {
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = 'placed-template-block template-laboratorio';
+    div.dataset.templateType = 'laboratorio';
+    div.style.left = '40px';
+    div.style.top = '100px';
+
+    div.innerHTML = `
+        <div class="template-header">
+            <span class="template-title">🔬 RELATÓRIO DE LABORATÓRIO / ENSAIO PRÁTICO</span>
+            <div class="template-actions">
+                <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Template">✕</button>
+            </div>
+        </div>
+        <div class="template-body">
+            <div class="template-section">
+                <div class="template-section-title">1. Objetivo do Ensaio:</div>
+                <div class="template-editable-box" contenteditable="true">Verificação experimental da Lei de Ohm e medição da curva V-I em componentes passivos.</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title">2. Equipamento & Material Utilizado:</div>
+                <div class="template-editable-box" contenteditable="true">• Fonte de Alimentação DC regulável (0-30V)\n• Multímetro Digital (Amperímetro e Voltímetro)\n• Resistores: 100 Ω, 1 kΩ, 10 kΩ\n• Cabos de conexão tipo banana-jacaré</div>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title">3. Tabela de Medições Experimentais:</div>
+                <table class="template-table">
+                    <thead>
+                        <tr><th>Ensaio</th><th>Tensão U (V)</th><th>Corrente I (mA)</th><th>Resistência Calculada (Ω)</th><th>Potência P (mW)</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>#1</td><td contenteditable="true">2,0</td><td contenteditable="true">20,0</td><td contenteditable="true">100</td><td contenteditable="true">40</td></tr>
+                        <tr><td>#2</td><td contenteditable="true">4,0</td><td contenteditable="true">40,1</td><td contenteditable="true">99,8</td><td contenteditable="true">160</td></tr>
+                        <tr><td>#3</td><td contenteditable="true">6,0</td><td contenteditable="true">60,2</td><td contenteditable="true">99,7</td><td contenteditable="true">361</td></tr>
+                        <tr><td>#4</td><td contenteditable="true">8,0</td><td contenteditable="true">79,9</td><td contenteditable="true">100,1</td><td contenteditable="true">639</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="template-section">
+                <div class="template-section-title">4. Conclusões & Análise dos Resultados:</div>
+                <div class="template-editable-box" contenteditable="true">Os resultados medidos confirmam uma relação estritamente linear entre a tensão e a intensidade de corrente, com desvio percentual inferior a 1%.</div>
+            </div>
+        </div>
+    `;
+    ativarInteracaoTemplate(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+}
+
+function criarTemplatePlaneamento() {
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = 'placed-template-block template-planeamento';
+    div.dataset.templateType = 'planeamento';
+    div.style.left = '40px';
+    div.style.top = '100px';
+
+    div.innerHTML = `
+        <div class="template-header">
+            <span class="template-title">📋 TABELA DE TAREFAS / PLANEAMENTO DE ESTUDO</span>
+            <div class="template-actions">
+                <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Template">✕</button>
+            </div>
+        </div>
+        <div class="template-body">
+            <div class="planner-task-row"><input type="checkbox"> <span class="planner-task-text" contenteditable="true">Rever teoremas de Thevenin e Norton</span> <span class="planner-tag tag-urgente">Alta</span></div>
+            <div class="planner-task-row"><input type="checkbox"> <span class="planner-task-text" contenteditable="true">Resolver lista de 5 exercícios de circuitos AC</span> <span class="planner-tag tag-normal">Média</span></div>
+            <div class="planner-task-row"><input type="checkbox"> <span class="planner-task-text" contenteditable="true">Concluir esquema no CCnotes e inserir no caderno</span> <span class="planner-tag tag-urgente">Alta</span></div>
+            <div class="planner-task-row"><input type="checkbox"> <span class="planner-task-text" contenteditable="true">Elaborar relatório do ensaio de laboratório</span> <span class="planner-tag tag-baixa">Baixa</span></div>
+            <div class="planner-task-row"><input type="checkbox"> <span class="planner-task-text" contenteditable="true">Estudar apontamentos para o teste de avaliação</span> <span class="planner-tag tag-urgente">Alta</span></div>
+        </div>
+    `;
+    ativarInteracaoTemplate(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+}
+
+function importarTemplateFicheiro(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    cadernoSalvarHistorico();
+
+    const fileName = file.name.toLowerCase();
+    const reader = new FileReader();
+
+    if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.svg')) {
+        reader.onload = function(evt) {
+            const div = document.createElement('div');
+            div.className = 'placed-template-block template-ficheiro';
+            div.dataset.templateType = 'ficheiro-img';
+            div.style.left = '60px';
+            div.style.top = '100px';
+            div.innerHTML = `
+                <div class="template-header">
+                    <span class="template-title">🖼️ ${file.name}</span>
+                    <div class="template-actions">
+                        <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Imagem">✕</button>
+                    </div>
+                </div>
+                <div style="padding:10px; display:flex; justify-content:center; background:#ffffff;">
+                    <img src="${evt.target.result}" style="max-width:100%; max-height:450px; object-fit:contain; border-radius:4px;" />
+                </div>
+            `;
+            ativarInteracaoTemplate(div);
+            placedBlocksContainer.appendChild(div);
+            salvarNoLocalStorage();
+        };
+        reader.readAsDataURL(file);
+    } else if (fileName.endsWith('.json')) {
+        reader.onload = function(evt) {
+            try {
+                const data = JSON.parse(evt.target.result);
+                if (data.blocks || data.strokes || data.circuits) {
+                    if (data.strokes) currentStrokes.push(...data.strokes);
+                    redrawStrokes();
+                }
+                alert(`Template JSON "${file.name}" importado com sucesso.`);
+                salvarNoLocalStorage();
+            } catch(err) {
+                alert("Erro ao ler ficheiro JSON.");
+            }
+        };
+        reader.readAsText(file);
+    } else if (fileName.endsWith('.txt')) {
+        reader.onload = function(evt) {
+            criarBlocoTexto(evt.target.result, 60, 120, 16, 0);
+            salvarNoLocalStorage();
+        };
+        reader.readAsText(file);
+    } else if (fileName.endsWith('.pdf')) {
+        reader.onload = function(evt) {
+            const div = document.createElement('div');
+            div.className = 'placed-template-block template-ficheiro';
+            div.dataset.templateType = 'ficheiro-pdf';
+            div.style.left = '60px';
+            div.style.top = '100px';
+            div.innerHTML = `
+                <div class="template-header">
+                    <span class="template-title">📄 Documento PDF: ${file.name}</span>
+                    <div class="template-actions">
+                        <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover PDF">✕</button>
+                    </div>
+                </div>
+                <div style="padding:12px; font-size:14px; color:#1e293b;">
+                    Ficheiro PDF carregado. <a href="${evt.target.result}" target="_blank" style="color:#2563eb; font-weight:700; text-decoration:underline;">Abrir PDF numa nova aba</a>
+                </div>
+            `;
+            ativarInteracaoTemplate(div);
+            placedBlocksContainer.appendChild(div);
+            salvarNoLocalStorage();
+        };
+        reader.readAsDataURL(file);
+    }
+    e.target.value = '';
+}
+
+function restaurarTemplateBlock(t) {
+    const div = document.createElement('div');
+    div.className = `placed-template-block template-${t.templateType || 'geral'}`;
+    div.dataset.templateType = t.templateType || 'geral';
+    div.style.left = (t.left || 40) + 'px';
+    div.style.top = (t.top || 100) + 'px';
+    div.innerHTML = t.html || '';
+
+    ativarInteracaoTemplate(div);
+    placedBlocksContainer.appendChild(div);
+}
+
+function ativarInteracaoTemplate(div) {
+    let isDragging = false, ox = 0, oy = 0;
+
+    div.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('input, button, a, [contenteditable="true"]')) return;
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedElement = div;
+
+        isDragging = true;
+        const pos = getCoordinates(e);
+        ox = pos.x - (parseFloat(div.style.left) || 0);
+        oy = pos.y - (parseFloat(div.style.top) || 0);
+        e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const pos = getCoordinates(e);
+        div.style.left = Math.max(0, Math.min(A4_WIDTH - 60, pos.x - ox)) + 'px';
+        div.style.top = Math.max(0, Math.min(A4_HEIGHT - 60, pos.y - oy)) + 'px';
+    });
+
+    window.addEventListener('pointerup', () => {
+        if (isDragging) {
+            isDragging = false;
+            salvarNoLocalStorage();
+        }
+    });
+}
+
+// --------------------------------------------------------
+// Rotação e Eliminação por Teclado e Atalhos (Ctrl+Z, Ctrl+Y, Ctrl+X, Ctrl+C, Ctrl+V)
 // --------------------------------------------------------
 function rotateCurrentSelection() {
     if (selectedShapeStroke) {
@@ -1477,6 +2415,53 @@ function rotateCurrentSelection() {
 }
 
 window.addEventListener('keydown', (e) => {
+    // Atalhos Universais Undo/Redo/Cut/Copy/Paste
+    const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+    const isCC = document.getElementById('ccnotesModal') && document.getElementById('ccnotesModal').classList.contains('active');
+    const isInputActive = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable;
+
+    if (isCtrlOrCmd && (e.key === 'z' || e.key === 'Z')) {
+        if (e.shiftKey) {
+            e.preventDefault();
+            if (isCC) ccRefazer();
+            else cadernoRefazer();
+            return;
+        } else {
+            e.preventDefault();
+            if (isCC) ccDesfazer();
+            else cadernoDesfazer();
+            return;
+        }
+    }
+
+    if (isCtrlOrCmd && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        if (isCC) ccRefazer();
+        else cadernoRefazer();
+        return;
+    }
+
+    if (isCtrlOrCmd && (e.key === 'c' || e.key === 'C') && !isInputActive) {
+        e.preventDefault();
+        if (isCC) ccCopiar();
+        else cadernoCopiar();
+        return;
+    }
+
+    if (isCtrlOrCmd && (e.key === 'x' || e.key === 'X') && !isInputActive) {
+        e.preventDefault();
+        if (isCC) ccCortar();
+        else cadernoCortar();
+        return;
+    }
+
+    if (isCtrlOrCmd && (e.key === 'v' || e.key === 'V') && !isInputActive) {
+        e.preventDefault();
+        if (isCC) ccColar();
+        else cadernoColar();
+        return;
+    }
+
     // Tecla ESC para sair do modo de desenho de fios no CCnotes (Ponto 1)
     if (e.key === 'Escape') {
         if (pendingPlacement) {
@@ -1487,7 +2472,7 @@ window.addEventListener('keydown', (e) => {
             setTool('pen');
             return;
         }
-        if (document.getElementById('ccnotesModal').classList.contains('active')) {
+        if (isCC) {
             if (ccTool === 'wire') {
                 ccWireStart = null;
                 document.getElementById('ccPreviewLayer').innerHTML = '';
@@ -1499,7 +2484,7 @@ window.addEventListener('keydown', (e) => {
     }
 
     // Tecla ESPAÇO para alternar direção da curva de 90° no CCnotes (H-V ou V-H)
-    if (e.code === 'Space' && document.getElementById('ccnotesModal').classList.contains('active')) {
+    if (e.code === 'Space' && isCC) {
         if (ccTool === 'wire' && ccWireStart && ccLastWireTarget) {
             e.preventDefault();
             ccWireCornerMode = (ccWireCornerMode === 'VH') ? 'HV' : 'VH';
@@ -1508,27 +2493,30 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
-    if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+    if (isInputActive) return;
 
     if (e.key === 'r' || e.key === 'R') {
-        if (document.getElementById('ccnotesModal').classList.contains('active')) {
-            ccRotateSelected();
+        if (isCC) {
+            ccRotateSelected(e.shiftKey ? -90 : 90);
         } else {
             rotateCurrentSelection();
         }
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (document.getElementById('ccnotesModal').classList.contains('active')) {
+        if (isCC) {
             ccDeleteSelected();
         } else {
             if (selectedShapeStroke) {
+                cadernoSalvarHistorico();
                 currentStrokes = currentStrokes.filter(s => s !== selectedShapeStroke);
                 selectedShapeStroke = null;
                 redrawStrokes();
                 salvarNoLocalStorage();
                 return;
             }
-            if (selectedElement) {
-                selectedElement.remove();
+            const selEl = document.querySelector('.text-block.selected, .circuit-placed-block.selected, .placed-postit.selected, .placed-page-marker.selected, .placed-label-card.selected, .placed-template-block.selected') || selectedElement;
+            if (selEl) {
+                cadernoSalvarHistorico();
+                selEl.remove();
                 selectedElement = null;
                 salvarNoLocalStorage();
             }
@@ -1945,11 +2933,60 @@ function guardarEstadoAtual() {
         });
     });
 
+    const postits = [];
+    document.querySelectorAll('.placed-postit').forEach(p => {
+        const cnt = p.querySelector('.postit-content');
+        postits.push({
+            color: p.dataset.color || 'yellow',
+            left: parseFloat(p.style.left) || 0,
+            top: parseFloat(p.style.top) || 0,
+            width: parseFloat(p.style.width) || 200,
+            height: parseFloat(p.style.height) || 180,
+            html: cnt ? cnt.innerHTML : ''
+        });
+    });
+
+    const markers = [];
+    document.querySelectorAll('.placed-page-marker').forEach(m => {
+        const txt = m.querySelector('.marker-text');
+        markers.push({
+            color: m.dataset.color || 'urgente',
+            left: parseFloat(m.style.left) || 0,
+            top: parseFloat(m.style.top) || 0,
+            text: txt ? txt.innerText : ''
+        });
+    });
+
+    const labels = [];
+    document.querySelectorAll('.placed-label-card').forEach(l => {
+        const vals = Array.from(l.querySelectorAll('.label-val')).map(v => v.innerText);
+        labels.push({
+            type: l.dataset.type || 'escola',
+            left: parseFloat(l.style.left) || 0,
+            top: parseFloat(l.style.top) || 0,
+            vals: vals
+        });
+    });
+
+    const templates = [];
+    document.querySelectorAll('.placed-template-block').forEach(t => {
+        templates.push({
+            templateType: t.dataset.templateType || 'geral',
+            left: parseFloat(t.style.left) || 0,
+            top: parseFloat(t.style.top) || 0,
+            html: t.innerHTML
+        });
+    });
+
     tabData.pages[pIdx] = {
         strokes: JSON.parse(JSON.stringify(currentStrokes || [])),
         templateIdx: templateIdx ?? 0,
         blocks: blocks,
-        circuits: circuits
+        circuits: circuits,
+        postits: postits,
+        markers: markers,
+        labels: labels,
+        templates: templates
     };
 }
 
@@ -1968,8 +3005,7 @@ function carregarPagina(cad, tab, pageIdx = 0) {
     const page = tabData.pages[pageIdx];
 
     // Limpar elementos visuais da folha anterior
-    document.querySelectorAll('.text-block').forEach(b => b.remove());
-    document.querySelectorAll('.circuit-placed-block').forEach(b => b.remove());
+    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.remove());
 
     templateIdx = page.templateIdx ?? 0;
     currentStrokes = JSON.parse(JSON.stringify(page.strokes || []));
@@ -1981,6 +3017,11 @@ function carregarPagina(cad, tab, pageIdx = 0) {
     (page.circuits || []).forEach(c => {
         criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData);
     });
+
+    (page.postits || []).forEach(p => restaurarPostIt(p));
+    (page.markers || []).forEach(m => restaurarMarcadorPagina(m));
+    (page.labels || []).forEach(l => restaurarEtiquetaCard(l));
+    (page.templates || []).forEach(t => restaurarTemplateBlock(t));
 
     renderBackground();
     redrawStrokes();
@@ -2134,11 +3175,31 @@ function executePlacementAt(x, y) {
     salvarNoLocalStorage();
 }
 
+let activeSidebarNotebooks = [];
+
+function carregarCadernosIniciais() {
+    try {
+        const saved = localStorage.getItem('activeSidebarNotebooks');
+        if (saved) activeSidebarNotebooks = JSON.parse(saved);
+    } catch(e) {}
+    if (!Array.isArray(activeSidebarNotebooks) || activeSidebarNotebooks.length === 0) {
+        activeSidebarNotebooks = Object.keys(notebooks);
+    }
+    activeSidebarNotebooks = activeSidebarNotebooks.filter(c => notebooks[c]);
+    if (!activeSidebarNotebooks.includes(activeNotebook) && notebooks[activeNotebook]) {
+        activeSidebarNotebooks.push(activeNotebook);
+    }
+}
+
 function renderCadernosSidebar() {
     const lista = document.getElementById('cadernos-lista');
     const selectAtivo = document.getElementById('selectCadernoAtivo');
     if (!lista) return;
     lista.innerHTML = '';
+
+    if (activeSidebarNotebooks.length === 0) {
+        carregarCadernosIniciais();
+    }
 
     if (selectAtivo) {
         selectAtivo.innerHTML = '';
@@ -2151,7 +3212,8 @@ function renderCadernosSidebar() {
         }
     }
 
-    for (let cad in notebooks) {
+    activeSidebarNotebooks.forEach(cad => {
+        if (!notebooks[cad]) return;
         const card = document.createElement('div');
         card.className = 'notebook-card' + (cad === activeNotebook ? ' active' : '');
 
@@ -2188,12 +3250,17 @@ function renderCadernosSidebar() {
             carregarPagina(cad, tabs[0], 0);
         };
         lista.appendChild(card);
-    }
+    });
+
     if (window.lucide) lucide.createIcons();
 }
 
 function selecionarCadernoDropdown(cad) {
     if (!notebooks[cad]) return;
+    if (!activeSidebarNotebooks.includes(cad)) {
+        activeSidebarNotebooks.push(cad);
+        localStorage.setItem('activeSidebarNotebooks', JSON.stringify(activeSidebarNotebooks));
+    }
     const tabs = (notebooks[cad] && Array.isArray(notebooks[cad].tabs)) ? notebooks[cad].tabs : ["Teoria", "Exercícios"];
     const tabToLoad = tabs.includes(activeTab) ? activeTab : tabs[0];
     carregarPagina(cad, tabToLoad, 0);
@@ -2201,18 +3268,46 @@ function selecionarCadernoDropdown(cad) {
 }
 
 function tirarCadernoDaBarra(cad) {
-    const keys = Object.keys(notebooks);
-    if (keys.length <= 1) {
+    if (activeSidebarNotebooks.length <= 1) {
         alert("Deve manter pelo menos um caderno ativo na barra lateral.");
         return;
     }
-    if (!confirm(`Deseja retirar o caderno "${cad}" da barra lateral?`)) return;
-    delete notebooks[cad];
+    activeSidebarNotebooks = activeSidebarNotebooks.filter(c => c !== cad);
+    localStorage.setItem('activeSidebarNotebooks', JSON.stringify(activeSidebarNotebooks));
     if (cad === activeNotebook) {
-        const remaining = Object.keys(notebooks)[0];
-        const tabs = notebooks[remaining].tabs || ["Teoria", "Exercícios"];
-        carregarPagina(remaining, tabs[0], 0);
+        const nextCad = activeSidebarNotebooks[0];
+        const tabs = (notebooks[nextCad] && notebooks[nextCad].tabs) || ["Teoria", "Exercícios"];
+        carregarPagina(nextCad, tabs[0], 0);
+    } else {
+        renderCadernosSidebar();
     }
+}
+
+function apagarCadernoDefinitivamente() {
+    const selectAtivo = document.getElementById('selectCadernoAtivo');
+    const cad = selectAtivo ? selectAtivo.value : activeNotebook;
+    if (!cad || !notebooks[cad]) return;
+
+    const totalCad = Object.keys(notebooks).length;
+    if (totalCad <= 1) {
+        alert("Não é possível apagar o único caderno existente.");
+        return;
+    }
+
+    if (!confirm(`Tem a certeza absoluta que deseja APAGAR DEFINITIVAMENTE o caderno "${cad}" e todas as suas folhas? Esta operação não pode ser desfeita.`)) {
+        return;
+    }
+
+    delete notebooks[cad];
+    activeSidebarNotebooks = activeSidebarNotebooks.filter(c => c !== cad);
+    localStorage.setItem('activeSidebarNotebooks', JSON.stringify(activeSidebarNotebooks));
+
+    const remainingKeys = Object.keys(notebooks);
+    const nextCad = activeSidebarNotebooks[0] || remainingKeys[0];
+    if (!activeSidebarNotebooks.includes(nextCad)) activeSidebarNotebooks.push(nextCad);
+
+    const tabs = (notebooks[nextCad] && notebooks[nextCad].tabs) || ["Teoria", "Exercícios"];
+    carregarPagina(nextCad, tabs[0], 0);
     renderCadernosSidebar();
     salvarNoLocalStorage();
 }
@@ -4689,18 +5784,24 @@ function ccUpdateLabelButton() {
     }
 }
 
-function ccRotateSelected() {
+function ccRotateSelected(direction = 90) {
     if (ccSelectedPart) {
+        ccSalvarHistorico();
         const oldTerms = ccGetPartAbsoluteTerminals(ccSelectedPart);
-        ccSelectedPart.rotation = ((ccSelectedPart.rotation || 0) + 90) % 360;
+        const curRot = ccSelectedPart.rotation || 0;
+        let newRot = (curRot + direction) % 360;
+        if (newRot < 0) newRot += 360;
+        ccSelectedPart.rotation = newRot;
         const newTerms = ccGetPartAbsoluteTerminals(ccSelectedPart);
 
         oldTerms.forEach((ot, idx) => {
             const nt = newTerms[idx];
-            ccState.wires.forEach(w => {
-                if (Math.hypot(w.x1 - ot.x, w.y1 - ot.y) <= 4) { w.x1 = nt.x; w.y1 = nt.y; }
-                if (Math.hypot(w.x2 - ot.x, w.y2 - ot.y) <= 4) { w.x2 = nt.x; w.y2 = nt.y; }
-            });
+            if (nt) {
+                ccState.wires.forEach(w => {
+                    if (Math.hypot(w.x1 - ot.x, w.y1 - ot.y) <= 4) { w.x1 = nt.x; w.y1 = nt.y; }
+                    if (Math.hypot(w.x2 - ot.x, w.y2 - ot.y) <= 4) { w.x2 = nt.x; w.y2 = nt.y; }
+                });
+            }
         });
 
         ccRenderAll();
@@ -4709,13 +5810,20 @@ function ccRotateSelected() {
 
 function ccDeleteSelected() {
     if (ccSelectedPart) {
+        ccSalvarHistorico();
         ccState.parts = ccState.parts.filter(p => p !== ccSelectedPart);
         ccSelectedPart = null;
         ccUpdateLabelButton();
         ccRenderAll();
     } else if (ccSelectedWire) {
+        ccSalvarHistorico();
         ccState.wires = ccState.wires.filter(w => w !== ccSelectedWire);
         ccSelectedWire = null;
+        ccRenderAll();
+    } else if (ccSelectedAnnotation) {
+        ccSalvarHistorico();
+        ccState.annotations = ccState.annotations.filter(a => a !== ccSelectedAnnotation);
+        ccSelectedAnnotation = null;
         ccRenderAll();
     }
 }
@@ -5039,6 +6147,7 @@ function inserirCircuitoNaNota() {
 // --------------------------------------------------------
 window.addEventListener('DOMContentLoaded', () => {
     carregarDoLocalStorage();
+    carregarCadernosIniciais();
     const tabData = getTabData(activeNotebook, activeTab);
     const initialPage = tabData.pages[tabData.currentPage || 0];
     if (initialPage) {
@@ -5050,6 +6159,10 @@ window.addEventListener('DOMContentLoaded', () => {
         (initialPage.circuits || []).forEach(c => {
             criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale, c.rotation, c.circuitData);
         });
+        (initialPage.postits || []).forEach(p => restaurarPostIt(p));
+        (initialPage.markers || []).forEach(m => restaurarMarcadorPagina(m));
+        (initialPage.labels || []).forEach(l => restaurarEtiquetaCard(l));
+        (initialPage.templates || []).forEach(t => restaurarTemplateBlock(t));
     }
     renderBackground();
     renderCadernosSidebar();
@@ -5068,6 +6181,15 @@ window.addEventListener('click', (e) => {
         closeAllDropdowns();
     }
     if (!e.target.closest('.word-symbols-modal') && !e.target.closest('#btn-word-symbols') && !e.target.closest('[onclick*="toggleWordSymbolsModal"]')) {
-        document.getElementById('wordSymbolsModal').classList.remove('active');
+        const sm = document.getElementById('wordSymbolsModal');
+        if (sm) sm.classList.remove('active');
+    }
+    if (!e.target.closest('.sidebar-create-group')) {
+        const cm = document.getElementById('menuCriarDropdown');
+        if (cm) cm.classList.remove('open');
+    }
+    if (!e.target.closest('#postItModal') && !e.target.closest('#btn-postit-menu') && !e.target.closest('[onclick*="togglePostItModal"]')) {
+        const pm = document.getElementById('postItModal');
+        if (pm) pm.classList.remove('active');
     }
 });
