@@ -1,9 +1,9 @@
-const CACHE_NAME = 'ccnotes-chromebook-v3';
+const CACHE_NAME = 'ccnotes-chromebook-v4';
 const ASSETS = [
   './',
   'index.html',
-  'style.css',
-  'app.js',
+  'style.css?v=4.0',
+  'app.js?v=4.0',
   'manifest.json',
   'icon.svg',
   'icon-192.png',
@@ -11,10 +11,10 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
@@ -23,15 +23,28 @@ self.addEventListener('activate', (e) => {
       return Promise.all(
         keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
+// Estratégia Network-First: Procura primeiro pela versão mais recente na rede e atualiza a cache. Se offline, usa a cache local.
 self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      return cached || fetch(e.request).catch(() => caches.match('./index.html'));
-    })
+    fetch(e.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(e.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(e.request).then((cached) => {
+          return cached || caches.match('./index.html');
+        });
+      })
   );
 });
