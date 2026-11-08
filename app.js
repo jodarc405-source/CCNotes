@@ -1722,7 +1722,7 @@ function deleteTextBlock(btn) {
 // --------------------------------------------------------
 // Blocos de Circuito na Folha A4 (Caixa Compacta & Escrita Integrada)
 // --------------------------------------------------------
-function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1, rotation = 0, circuitData = null, caption = '') {
+function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1, rotation = 0, circuitData = null, caption = '', captionX = 0, captionY = 0) {
     const div = document.createElement('div');
     div.className = 'circuit-placed-block';
     div.style.left = left + 'px';
@@ -1732,19 +1732,26 @@ function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1,
     div.dataset.svgRaw = svgContent;
     div.dataset.circuitData = JSON.stringify(circuitData || ccState);
     div.dataset.caption = caption || '';
+    div.dataset.captionX = String(captionX || 0);
+    div.dataset.captionY = String(captionY || 0);
 
-    const wrap = document.createElement('div');
-    wrap.className = 'circuit-inner-svg';
-    wrap.innerHTML = svgContent;
-    div.appendChild(wrap);
+    // Barra / Caixa de Legenda NO TOPO do circuito e com alça para movimentar livremente
+    const captionWrap = document.createElement('div');
+    captionWrap.className = 'circuit-caption-bar';
+    captionWrap.style.transform = `translate(${captionX || 0}px, ${captionY || 0}px)`;
 
-    // Caixa para anotação/legenda diretamente na caixa do circuito (Ponto 3)
+    const dragHandle = document.createElement('span');
+    dragHandle.className = 'circuit-caption-handle';
+    dragHandle.title = 'Arrastar legenda para qualquer posição';
+    dragHandle.innerText = '⠿';
+
     const captionBox = document.createElement('div');
     captionBox.className = 'circuit-caption-box';
     captionBox.contentEditable = 'true';
     captionBox.spellcheck = true;
-    captionBox.setAttribute('placeholder', 'Escrever anotação / legenda...');
+    captionBox.setAttribute('placeholder', 'Título / Legenda do circuito...');
     captionBox.innerHTML = caption || '';
+
     captionBox.addEventListener('input', () => {
         div.dataset.caption = captionBox.innerHTML;
         salvarNoLocalStorage();
@@ -1752,7 +1759,46 @@ function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1,
     captionBox.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
     });
-    div.appendChild(captionBox);
+
+    // Mover a legenda do circuito livremente
+    let isMovingCaption = false, startCapX = 0, startCapY = 0, initOffX = 0, initOffY = 0;
+    dragHandle.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        isMovingCaption = true;
+        startCapX = e.clientX;
+        startCapY = e.clientY;
+        initOffX = parseFloat(div.dataset.captionX) || 0;
+        initOffY = parseFloat(div.dataset.captionY) || 0;
+        dragHandle.setPointerCapture(e.pointerId);
+    });
+
+    dragHandle.addEventListener('pointermove', (e) => {
+        if (!isMovingCaption) return;
+        const dx = e.clientX - startCapX;
+        const dy = e.clientY - startCapY;
+        const newX = Math.round(initOffX + dx);
+        const newY = Math.round(initOffY + dy);
+        div.dataset.captionX = String(newX);
+        div.dataset.captionY = String(newY);
+        captionWrap.style.transform = `translate(${newX}px, ${newY}px)`;
+    });
+
+    dragHandle.addEventListener('pointerup', (e) => {
+        if (isMovingCaption) {
+            isMovingCaption = false;
+            try { dragHandle.releasePointerCapture(e.pointerId); } catch(err){}
+            salvarNoLocalStorage();
+        }
+    });
+
+    captionWrap.appendChild(dragHandle);
+    captionWrap.appendChild(captionBox);
+    div.appendChild(captionWrap);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'circuit-inner-svg';
+    wrap.innerHTML = svgContent;
+    div.appendChild(wrap);
 
     div.addEventListener('dblclick', (e) => {
         captionBox.focus();
@@ -1784,7 +1830,7 @@ function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1,
 
     let isDragging = false, ox = 0, oy = 0;
     div.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.ctrl-btn') || e.target.classList.contains('resize-handle') || e.target.classList.contains('circuit-caption-box')) return;
+        if (e.target.closest('.ctrl-btn') || e.target.classList.contains('resize-handle') || e.target.closest('.circuit-caption-bar')) return;
         if (currentTool === 'eraser') {
             div.remove();
             salvarNoLocalStorage();
@@ -1959,7 +2005,7 @@ function cadernoRestaurarSnapshot(jsonStr) {
     });
 
     (pageData.circuits || []).forEach(c => {
-        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData, c.caption || '');
+        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData, c.caption || '', c.captionX || 0, c.captionY || 0);
     });
 
     (pageData.titles || []).forEach(t => restaurarTituloBlock(t));
@@ -1992,7 +2038,9 @@ function cadernoCopiar() {
                 scale: parseFloat(selBlock.dataset.scale) || 1,
                 rotation: parseInt(selBlock.dataset.rotation) || 0,
                 circuitData: cData,
-                caption: selBlock.dataset.caption || ''
+                caption: selBlock.dataset.caption || '',
+                captionX: parseFloat(selBlock.dataset.captionX) || 0,
+                captionY: parseFloat(selBlock.dataset.captionY) || 0
             };
         } else if (selBlock.classList.contains('placed-title-block')) {
             const cnt = selBlock.querySelector('.title-content');
@@ -2067,7 +2115,7 @@ function cadernoColar() {
     if (cadernoClipboard.type === 'text') {
         criarBlocoTexto(cadernoClipboard.text, 100 + offset, 150 + offset, cadernoClipboard.fontSize, cadernoClipboard.rotation);
     } else if (cadernoClipboard.type === 'circuit') {
-        criarBlocoCircuitoNaFolha(cadernoClipboard.svg, 100 + offset, 150 + offset, cadernoClipboard.scale, cadernoClipboard.rotation, cadernoClipboard.circuitData, cadernoClipboard.caption);
+        criarBlocoCircuitoNaFolha(cadernoClipboard.svg, 100 + offset, 150 + offset, cadernoClipboard.scale, cadernoClipboard.rotation, cadernoClipboard.circuitData, cadernoClipboard.caption, cadernoClipboard.captionX, cadernoClipboard.captionY);
     } else if (cadernoClipboard.type === 'title') {
         restaurarTituloBlock({ left: 100 + offset, top: 100 + offset, html: cadernoClipboard.html, config: cadernoClipboard.config });
     } else if (cadernoClipboard.type === 'postit') {
@@ -3203,7 +3251,8 @@ function setTool(tool) {
     else if (tool === 'highlighter') toggleDropdown('highlighter-dropdown');
     else closeAllDropdowns();
 
-    // Permite desenhar livremente por cima de circuitos na folha quando em modo de caneta/lápis
+    // Permite desenhar livremente por cima de circuitos na folha quando em modo de caneta/lápis/formas
+    document.body.classList.toggle('tool-select-active', tool === 'select');
     document.body.classList.toggle('tool-is-drawing', tool === 'pen' || tool === 'pencil' || tool === 'highlighter' || tool === 'eraser');
 
     if (tool !== 'select') {
@@ -3228,6 +3277,8 @@ function closeAllDropdowns() {
 function selectShape(shape, iconName, label) {
     currentShape = shape;
     currentTool = 'shape';
+    document.body.classList.toggle('tool-select-active', false);
+    document.body.classList.toggle('tool-is-drawing', false);
     document.querySelectorAll('.toolbar .tool-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-shape-menu').classList.add('active');
     document.getElementById('active-shape-icon').setAttribute('data-lucide', iconName);
@@ -3240,6 +3291,8 @@ function selectShape(shape, iconName, label) {
 function setEraserType(type) {
     eraserMode = type;
     currentTool = 'eraser';
+    document.body.classList.toggle('tool-select-active', false);
+    document.body.classList.toggle('tool-is-drawing', true);
     document.querySelectorAll('.toolbar .tool-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-eraser-menu').classList.add('active');
     document.querySelectorAll('#eraser-dropdown .dropdown-item').forEach(i => i.classList.remove('active'));
@@ -3520,6 +3573,341 @@ function renderWordSymbols() {
 }
 
 // ========================================================
+// LEGENDAS ELÉTRICAS PREDEFINIDAS (I1 com 4 setas, U1, R1, Nós...)
+// ========================================================
+const CIRCUIT_PRESET_LABELS = {
+    currents: [
+        // I1 com as 4 direções de seta
+        { label: "I₁ →", dir: "direita", desc: "Corrente I1 para a direita" },
+        { label: "I₁ ←", dir: "esquerda", desc: "Corrente I1 para a esquerda" },
+        { label: "I₁ ↑", dir: "cima", desc: "Corrente I1 para cima" },
+        { label: "I₁ ↓", dir: "baixo", desc: "Corrente I1 para baixo" },
+
+        // I2 com as 4 direções de seta
+        { label: "I₂ →", dir: "direita", desc: "Corrente I2 para a direita" },
+        { label: "I₂ ←", dir: "esquerda", desc: "Corrente I2 para a esquerda" },
+        { label: "I₂ ↑", dir: "cima", desc: "Corrente I2 para cima" },
+        { label: "I₂ ↓", dir: "baixo", desc: "Corrente I2 para baixo" },
+
+        // I3 com as 4 direções de seta
+        { label: "I₃ →", dir: "direita", desc: "Corrente I3 para a direita" },
+        { label: "I₃ ←", dir: "esquerda", desc: "Corrente I3 para a esquerda" },
+        { label: "I₃ ↑", dir: "cima", desc: "Corrente I3 para cima" },
+        { label: "I₃ ↓", dir: "baixo", desc: "Corrente I3 para baixo" },
+
+        // I4 com as 4 direções de seta
+        { label: "I₄ →", dir: "direita", desc: "Corrente I4 para a direita" },
+        { label: "I₄ ←", dir: "esquerda", desc: "Corrente I4 para a esquerda" },
+        { label: "I₄ ↑", dir: "cima", desc: "Corrente I4 para cima" },
+        { label: "I₄ ↓", dir: "baixo", desc: "Corrente I4 para baixo" },
+
+        // I5 com as 4 direções de seta
+        { label: "I₅ →", dir: "direita", desc: "Corrente I5 para a direita" },
+        { label: "I₅ ←", dir: "esquerda", desc: "Corrente I5 para a esquerda" },
+        { label: "I₅ ↑", dir: "cima", desc: "Corrente I5 para cima" },
+        { label: "I₅ ↓", dir: "baixo", desc: "Corrente I5 para baixo" },
+
+        // Correntes gerais e de ramos
+        { label: "Iin →", dir: "direita", desc: "Corrente de entrada" },
+        { label: "Iout →", dir: "direita", desc: "Corrente de saída" },
+        { label: "Itot →", dir: "direita", desc: "Corrente total" },
+        { label: "IN →", dir: "direita", desc: "Corrente do neutro" },
+        { label: "i(t)", dir: "geral", desc: "Corrente instantânea" },
+        { label: "Irms", dir: "geral", desc: "Corrente eficaz (RMS)" },
+        { label: "Icc", dir: "geral", desc: "Corrente de curto-circuito" }
+    ],
+    voltages: [
+        // Tensões U
+        { label: "U₁", desc: "Tensão U1" },
+        { label: "U₂", desc: "Tensão U2" },
+        { label: "U₃", desc: "Tensão U3" },
+        { label: "U₄", desc: "Tensão U4" },
+        { label: "U₅", desc: "Tensão U5" },
+        { label: "Uin", desc: "Tensão de entrada (Uin)" },
+        { label: "Uout", desc: "Tensão de saída (Uout)" },
+        { label: "Uth", desc: "Tensão de Thévenin (Uth)" },
+        { label: "u(t)", desc: "Tensão instantânea u(t)" },
+
+        // Polaridades de Tensão (+ -)
+        { label: "+ U₁ -", desc: "Polaridade U1 (+ à esq / - à dir)" },
+        { label: "- U₁ +", desc: "Polaridade U1 (- à esq / + à dir)" },
+        { label: "+ U₂ -", desc: "Polaridade U2 (+ à esq / - à dir)" },
+        { label: "- U₂ +", desc: "Polaridade U2 (- à esq / + à dir)" },
+        { label: "+ U₃ -", desc: "Polaridade U3 (+ à esq / - à dir)" },
+        { label: "+ Us -", desc: "Tensão da fonte Us" },
+
+        // Tensões V e Alimentação
+        { label: "V₁", desc: "Potencial / Tensão V1" },
+        { label: "V₂", desc: "Potencial / Tensão V2" },
+        { label: "V₃", desc: "Potencial / Tensão V3" },
+        { label: "Vin", desc: "Tensão de entrada (Vin)" },
+        { label: "Vout", desc: "Tensão de saída (Vout)" },
+        { label: "+ V₁ -", desc: "Polaridade V1" },
+        { label: "Vcc", desc: "Alimentação positiva Vcc" },
+        { label: "Vdd", desc: "Alimentação positiva Vdd" },
+        { label: "Vss", desc: "Alimentação Vss" },
+        { label: "+ 5V", desc: "Alimentação +5V" },
+        { label: "+ 12V", desc: "Alimentação +12V" },
+        { label: "+ 24V", desc: "Alimentação +24V" },
+        { label: "0V", desc: "Referência 0V" },
+        { label: "GND", desc: "Massa / Ground" },
+        { label: "E₁", desc: "F.E.M. E1" },
+        { label: "E₂", desc: "F.E.M. E2" },
+        { label: "e(t)", desc: "F.E.M. instantânea" }
+    ],
+    components: [
+        // Resistências e Valores
+        { label: "R₁", desc: "Resistência R1" },
+        { label: "R₂", desc: "Resistência R2" },
+        { label: "R₃", desc: "Resistência R3" },
+        { label: "R₄", desc: "Resistência R4" },
+        { label: "R₅", desc: "Resistência R5" },
+        { label: "RL", desc: "Resistência de Carga (RL)" },
+        { label: "Rth", desc: "Resistência de Thévenin" },
+        { label: "Req", desc: "Resistência Equivalente" },
+        { label: "10 Ω", desc: "10 Ohm" },
+        { label: "100 Ω", desc: "100 Ohm" },
+        { label: "1 kΩ", desc: "1 Quilo-Ohm" },
+        { label: "4.7 kΩ", desc: "4.7 Quilo-Ohm" },
+        { label: "10 kΩ", desc: "10 Quilo-Ohm" },
+        { label: "100 kΩ", desc: "100 Quilo-Ohm" },
+        { label: "1 MΩ", desc: "1 Mega-Ohm" },
+
+        // Condensadores
+        { label: "C₁", desc: "Condensador C1" },
+        { label: "C₂", desc: "Condensador C2" },
+        { label: "C₃", desc: "Condensador C3" },
+        { label: "C₄", desc: "Condensador C4" },
+        { label: "Cin", desc: "Condensador de entrada" },
+        { label: "Cout", desc: "Condensador de saída" },
+        { label: "100 nF", desc: "100 Nanofarad" },
+        { label: "10 µF", desc: "10 Microfarad" },
+        { label: "100 µF", desc: "100 Microfarad" },
+
+        // Bobinas e Impedâncias
+        { label: "L₁", desc: "Indutância L1" },
+        { label: "L₂", desc: "Indutância L2" },
+        { label: "L₃", desc: "Indutância L3" },
+        { label: "1 mH", desc: "1 Milihenry" },
+        { label: "10 mH", desc: "10 Milihenry" },
+        { label: "Z₁", desc: "Impedância Z1" },
+        { label: "Z₂", desc: "Impedância Z2" },
+        { label: "Z₃", desc: "Impedância Z3" },
+        { label: "ZL", desc: "Impedância de Carga" },
+        { label: "Zth", desc: "Impedância de Thévenin" },
+        { label: "XL", desc: "Reatância Indutiva" },
+        { label: "XC", desc: "Reatância Capacitiva" }
+    ],
+    nodes: [
+        // Nós do Circuito
+        { label: "A", desc: "Nó A" },
+        { label: "B", desc: "Nó B" },
+        { label: "C", desc: "Nó C" },
+        { label: "D", desc: "Nó D" },
+        { label: "N", desc: "Nó Neutro (N)" },
+        { label: "Nó 1", desc: "Nó 1" },
+        { label: "Nó 2", desc: "Nó 2" },
+        { label: "⏚", desc: "Símbolo de Terra (Earth)" },
+        { label: "⏛", desc: "Símbolo de Chassis" },
+
+        // Potências e Grandezas
+        { label: "P", desc: "Potência Ativa (W)" },
+        { label: "P₁", desc: "Potência P1" },
+        { label: "P₂", desc: "Potência P2" },
+        { label: "Ptot", desc: "Potência Total" },
+        { label: "S", desc: "Potência Aparente (VA)" },
+        { label: "Q", desc: "Potência Reativa (VAr)" },
+        { label: "cos φ", desc: "Fator de Potência (cos φ)" },
+        { label: "φ", desc: "Ângulo de Fase (φ)" },
+        { label: "50 Hz", desc: "Frequência de Rede 50 Hz" },
+        { label: "60 Hz", desc: "Frequência de Rede 60 Hz" },
+        { label: "230 V", desc: "Tensão de Rede 230 V" },
+        { label: "400 V", desc: "Tensão Trifásica 400 V" },
+        { label: "τ = RC", desc: "Constante RC" },
+        { label: "τ = L/R", desc: "Constante L/R" }
+    ]
+};
+
+let circuitLabelsTarget = 'ccnotes';
+
+function toggleCircuitLabelsModal(target = 'ccnotes') {
+    circuitLabelsTarget = target;
+    const modal = document.getElementById('circuitLabelsModal');
+    if (!modal) return;
+    const isActive = modal.classList.contains('active');
+    if (!isActive) {
+        renderCircuitPresetLabels();
+        modal.classList.add('active');
+    } else {
+        modal.classList.remove('active');
+    }
+}
+
+function fecharModalLegendasEletricas() {
+    const modal = document.getElementById('circuitLabelsModal');
+    if (modal) modal.classList.remove('active');
+}
+
+function switchCircuitLabelTab(tab) {
+    const tabs = ['currents', 'voltages', 'components', 'nodes'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`cl-tab-${t}`);
+        const content = document.getElementById(`cl-content-${t}`);
+        if (btn) btn.classList.toggle('active', t === tab);
+        if (content) content.style.display = (t === tab) ? 'block' : 'none';
+    });
+}
+
+function renderCircuitPresetLabels() {
+    // Tab Correntes
+    const wrapCurrents = document.getElementById('cl-content-currents');
+    if (wrapCurrents) {
+        wrapCurrents.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.className = 'cl-grid';
+
+        CIRCUIT_PRESET_LABELS.currents.forEach(item => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'cl-label-card';
+            card.title = item.desc || item.label;
+            card.innerHTML = `
+                <span class="cl-card-text">${item.label}</span>
+                <span class="cl-card-sub">${item.dir || 'geral'}</span>
+            `;
+            card.onclick = () => {
+                inserirLegendaEletrica(item.label);
+            };
+            grid.appendChild(card);
+        });
+        wrapCurrents.appendChild(grid);
+    }
+
+    // Tab Tensões
+    const wrapVoltages = document.getElementById('cl-content-voltages');
+    if (wrapVoltages) {
+        wrapVoltages.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.className = 'cl-grid';
+
+        CIRCUIT_PRESET_LABELS.voltages.forEach(item => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'cl-label-card';
+            card.title = item.desc || item.label;
+            card.innerHTML = `
+                <span class="cl-card-text">${item.label}</span>
+                <span class="cl-card-sub">tensão</span>
+            `;
+            card.onclick = () => {
+                inserirLegendaEletrica(item.label);
+            };
+            grid.appendChild(card);
+        });
+        wrapVoltages.appendChild(grid);
+    }
+
+    // Tab Componentes
+    const wrapComponents = document.getElementById('cl-content-components');
+    if (wrapComponents) {
+        wrapComponents.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.className = 'cl-grid';
+
+        CIRCUIT_PRESET_LABELS.components.forEach(item => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'cl-label-card';
+            card.title = item.desc || item.label;
+            card.innerHTML = `
+                <span class="cl-card-text">${item.label}</span>
+                <span class="cl-card-sub">comp</span>
+            `;
+            card.onclick = () => {
+                inserirLegendaEletrica(item.label);
+            };
+            grid.appendChild(card);
+        });
+        wrapComponents.appendChild(grid);
+    }
+
+    // Tab Nós e Potências
+    const wrapNodes = document.getElementById('cl-content-nodes');
+    if (wrapNodes) {
+        wrapNodes.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.className = 'cl-grid';
+
+        CIRCUIT_PRESET_LABELS.nodes.forEach(item => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'cl-label-card';
+            card.title = item.desc || item.label;
+            card.innerHTML = `
+                <span class="cl-card-text">${item.label}</span>
+                <span class="cl-card-sub">nó / pot</span>
+            `;
+            card.onclick = () => {
+                inserirLegendaEletrica(item.label);
+            };
+            grid.appendChild(card);
+        });
+        wrapNodes.appendChild(grid);
+    }
+}
+
+function clAppendArrow(arrow) {
+    const input = document.getElementById('clCustomInput');
+    if (!input) return;
+    input.value = input.value.trim() + ' ' + arrow;
+    input.focus();
+}
+
+function clInserirCustom() {
+    const input = document.getElementById('clCustomInput');
+    if (!input || !input.value.trim()) return;
+    inserirLegendaEletrica(input.value.trim());
+}
+
+function inserirLegendaEletrica(texto) {
+    const ccModal = document.getElementById('ccnotesModal');
+    const isCcOpen = (ccModal && ccModal.classList.contains('active')) || circuitLabelsTarget === 'ccnotes';
+
+    if (isCcOpen) {
+        if (ccSelectedPart) {
+            ccSelectedPart.label = texto;
+            const btn = document.getElementById('cc-btn-label-edit');
+            const txt = document.getElementById('cc-btn-label-text');
+            if (txt) txt.innerText = `Legenda: ${texto}`;
+            ccRenderAll();
+        } else {
+            ccAdicionarLegendaCircuito(texto);
+        }
+        fecharModalLegendasEletricas();
+    } else {
+        activatePlacementMode('circuit_label', texto, 'Legenda de Circuito');
+        fecharModalLegendasEletricas();
+    }
+}
+
+function ccAdicionarLegendaCircuito(texto) {
+    ccState.annotations = ccState.annotations || [];
+    const newAnn = {
+        id: ccUid(),
+        tex: texto,
+        fontSize: 11, // EXATAMENTE a mesma dimensão das legendas dos componentes (11px Segoe UI bold)
+        isCircuitLabel: true,
+        x: ccSnap(220),
+        y: ccSnap(160)
+    };
+    ccState.annotations.push(newAnn);
+    ccSelectedAnnotation = newAnn;
+    ccSelectedPart = null;
+    ccSelectedWire = null;
+    ccRenderAll();
+}
+
+// ========================================================
 // Gestão de Cadernos e Navegação de Folhas (10 Folhas Predefinidas, Editável)
 // ========================================================
 function getTabData(cad = activeNotebook, tab = activeTab) {
@@ -3596,7 +3984,9 @@ function guardarEstadoAtual() {
             scale: parseFloat(b.dataset.scale) || 1,
             rotation: parseInt(b.dataset.rotation) || 0,
             circuitData: circuitData,
-            caption: b.dataset.caption || b.querySelector('.circuit-caption-box')?.innerHTML || ''
+            caption: b.dataset.caption || b.querySelector('.circuit-caption-box')?.innerHTML || '',
+            captionX: parseFloat(b.dataset.captionX) || 0,
+            captionY: parseFloat(b.dataset.captionY) || 0
         });
     });
 
@@ -3708,7 +4098,7 @@ function carregarPagina(cad, tab, pageIdx = 0) {
     });
 
     (page.circuits || []).forEach(c => {
-        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData, c.caption || '');
+        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData, c.caption || '', c.captionX || 0, c.captionY || 0);
     });
 
     (page.titles || []).forEach(t => restaurarTituloBlock(t));
@@ -3859,7 +4249,9 @@ function executePlacementAt(x, y) {
     if (!pendingPlacement) return;
     const { type, data } = pendingPlacement;
 
-    if (type === 'formula' || type === 'symbol') {
+    if (type === 'circuit_label') {
+        criarBlocoTexto(data, x, y, 11, 0);
+    } else if (type === 'formula' || type === 'symbol') {
         criarBlocoTexto(data, x, y, 22, 0);
     } else if (type === 'text') {
         criarBlocoTexto(data || 'Novo texto...', x, y, 18, 0);
@@ -6010,32 +6402,35 @@ function ccRenderAll() {
         ccSvgEl('circle', { cx: x, cy: y, r: 4.5, fill: '#111827' }, J);
     });
 
-    // Render de Anotações e Fórmulas no CCnotes (KaTeX Escolar Limpo e Escalável)
+    // Render de Anotações, Legendas Elétricas e Fórmulas no CCnotes
     (ccState.annotations || []).forEach(ann => {
         const isSel = (ccSelectedAnnotation?.id === ann.id);
-        const fSize = ann.fontSize || 18;
+        const fSize = ann.fontSize || (ann.isCircuitLabel ? 11 : 18);
+        const isCircLabel = ann.isCircuitLabel || fSize <= 12;
         const fo = document.createElementNS(CC_NS, 'foreignObject');
         fo.setAttribute('x', ann.x);
         fo.setAttribute('y', ann.y);
-        fo.setAttribute('width', Math.max(220, fSize * 10));
-        fo.setAttribute('height', Math.max(50, fSize * 2.5));
+        fo.setAttribute('width', Math.max(120, fSize * 8));
+        fo.setAttribute('height', Math.max(30, fSize * 2.2));
         fo.style.overflow = 'visible';
         fo.style.cursor = 'move';
 
         const div = document.createElement('div');
-        div.className = 'cc-annotation-math';
+        div.className = isCircLabel ? 'cc-annotation-circuit-label' : 'cc-annotation-math';
         div.style.cssText = `
             display: inline-flex;
             align-items: center;
-            padding: 3px 6px;
+            padding: ${isCircLabel ? '1px 4px' : '3px 6px'};
             background: ${isSel ? 'rgba(56, 189, 248, 0.15)' : 'transparent'};
             border: ${isSel ? '1.5px dashed #0284c7' : '1px solid transparent'};
             border-radius: 4px;
-            color: #0369a1;
+            color: ${isCircLabel ? '#0f172a' : '#0369a1'};
+            font-family: 'Segoe UI', sans-serif;
             font-size: ${fSize}px;
-            font-weight: 600;
+            font-weight: bold;
             user-select: none;
             white-space: nowrap;
+            line-height: 1.1;
         `;
 
         try {
@@ -6789,35 +7184,78 @@ function inserirCircuitoNaNota() {
     }
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    
+    // Bounds dos fios
     ccState.wires.forEach(w => {
         minX = Math.min(minX, w.x1, w.x2);
         minY = Math.min(minY, w.y1, w.y2);
         maxX = Math.max(maxX, w.x1, w.x2);
         maxY = Math.max(maxY, w.y1, w.y2);
     });
+
+    // Bounds dos componentes, terminais e legendas completas
     ccState.parts.forEach(p => {
         const h = (p.size || 50) / 2;
-        minX = Math.min(minX, p.x - h - 4);
-        minY = Math.min(minY, p.y - h - 12);
-        maxX = Math.max(maxX, p.x + h + 20);
-        maxY = Math.max(maxY, p.y + h + 14);
+        minX = Math.min(minX, p.x - h);
+        maxX = Math.max(maxX, p.x + h);
+        minY = Math.min(minY, p.y - h);
+        maxY = Math.max(maxY, p.y + h);
+
+        // Terminais absolutos reais
+        const terms = ccGetPartAbsoluteTerminals(p);
+        terms.forEach(([tx, ty]) => {
+            minX = Math.min(minX, tx - 5);
+            maxX = Math.max(maxX, tx + 5);
+            minY = Math.min(minY, ty - 5);
+            maxY = Math.max(maxY, ty + 5);
+        });
+
+        // Bounding box das legendas de componentes (NUNCA cortar R1, 10k, V1, etc.)
+        if (p.label && p.label.trim()) {
+            const rot = (p.rotation || 0) % 360;
+            const isVertical = (rot === 90 || rot === 270);
+            const approxLen = p.label.trim().length * 8.5; // ~8.5px por caractere Segoe UI bold 11px
+
+            if (isVertical) {
+                const lx = p.x + h + 18;
+                const ly = p.y + 4;
+                minX = Math.min(minX, lx);
+                maxX = Math.max(maxX, lx + approxLen + 12);
+                minY = Math.min(minY, ly - 14);
+                maxY = Math.max(maxY, ly + 6);
+            } else {
+                const isGnd = (p.symbol === 'gnd');
+                const lx = p.x;
+                const ly = isGnd ? p.y + h + 22 : p.y - h - 14;
+                const halfW = (approxLen / 2) + 8;
+                minX = Math.min(minX, lx - halfW);
+                maxX = Math.max(maxX, lx + halfW);
+                minY = Math.min(minY, ly - 14);
+                maxY = Math.max(maxY, ly + 6);
+            }
+        }
     });
+
+    // Bounds de anotações técnicas e legendas elétricas no circuito
     (ccState.annotations || []).forEach(ann => {
-        if (!ann || !ann.text || !ann.text.trim()) return;
-        const estLen = Math.min(160, Math.max(20, ann.text.length * 8));
+        const text = ann.tex || ann.text || '';
+        if (!text.trim()) return;
+        const fSize = ann.fontSize || 11;
+        const approxW = Math.max(28, text.length * (fSize * 0.8) + 16);
+        const approxH = fSize * 1.5 + 8;
         minX = Math.min(minX, ann.x - 4);
-        minY = Math.min(minY, ann.y - 14);
-        maxX = Math.max(maxX, ann.x + estLen);
-        maxY = Math.max(maxY, ann.y + 14);
+        minY = Math.min(minY, ann.y - 4);
+        maxX = Math.max(maxX, ann.x + approxW);
+        maxY = Math.max(maxY, ann.y + approxH);
     });
 
     if (minX === Infinity) { minX = 0; maxX = 100; minY = 0; maxY = 80; }
 
-    // Caixa compacta perfeitamente ajustada ao circuito (Ponto 3)
-    const pad = 6;
+    // Margem de segurança adequada para NUNCA cortar legendas nem terminais
+    const pad = 22;
     minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-    const width = Math.max(24, Math.round(maxX - minX));
-    const height = Math.max(24, Math.round(maxY - minY));
+    const width = Math.max(30, Math.round(maxX - minX));
+    const height = Math.max(30, Math.round(maxY - minY));
 
     const svgClone = document.createElementNS(CC_NS, 'svg');
     svgClone.setAttribute('width', width);
@@ -6832,6 +7270,10 @@ function inserirCircuitoNaNota() {
 
     // REMOVER BORDAS E PONTOS AZUIS COMPLETAMENTE (Ponto 2)
     gParts.querySelectorAll('rect[stroke="#0284c7"], circle.cc-dim-handle, circle.cc-pin-dot').forEach(r => r.remove());
+    gAnn.querySelectorAll('.cc-annotation-math, .cc-annotation-circuit-label').forEach(el => {
+        el.style.border = 'none';
+        el.style.background = 'transparent';
+    });
 
     svgClone.appendChild(gWires);
     svgClone.appendChild(gJunc);
@@ -6841,7 +7283,7 @@ function inserirCircuitoNaNota() {
     const svgXml = new XMLSerializer().serializeToString(svgClone);
     const snapshotData = JSON.parse(JSON.stringify(ccState));
 
-    // Se estiver a editar um bloco existente, atualiza o próprio bloco (Ponto 4)
+    // Se estiver a editar um bloco existente, atualiza o próprio bloco
     if (ccEditingBlock && document.body.contains(ccEditingBlock)) {
         ccEditingBlock.dataset.svgRaw = svgXml;
         ccEditingBlock.dataset.circuitData = JSON.stringify(snapshotData);
@@ -6877,7 +7319,7 @@ window.addEventListener('DOMContentLoaded', () => {
             criarBlocoTexto(b.text, b.left, b.top, b.fontSize, b.rotation);
         });
         (initialPage.circuits || []).forEach(c => {
-            criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale, c.rotation, c.circuitData, c.caption || '');
+            criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale, c.rotation, c.circuitData, c.caption || '', c.captionX || 0, c.captionY || 0);
         });
         (initialPage.titles || []).forEach(t => restaurarTituloBlock(t));
         (initialPage.postits || []).forEach(p => restaurarPostIt(p));
@@ -6890,6 +7332,7 @@ window.addEventListener('DOMContentLoaded', () => {
     redrawStrokes();
     aplicarZoom();
     atualizarContadorFolhas();
+    setTool('pen');
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -6915,5 +7358,9 @@ window.addEventListener('click', (e) => {
     if (!e.target.closest('#postItModal') && !e.target.closest('#btn-postit-menu') && !e.target.closest('[onclick*="togglePostItModal"]')) {
         const pm = document.getElementById('postItModal');
         if (pm) pm.classList.remove('active');
+    }
+    if (!e.target.closest('#circuitLabelsModal') && !e.target.closest('#btn-circuit-preset-labels') && !e.target.closest('#cc-btn-preset-labels') && !e.target.closest('[onclick*="toggleCircuitLabelsModal"]')) {
+        const clm = document.getElementById('circuitLabelsModal');
+        if (clm) clm.classList.remove('active');
     }
 });

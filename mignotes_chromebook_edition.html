@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.1">
+    <link rel="stylesheet" href="style.css?v=5.2">
 </head>
 <body>
     <header>
@@ -359,6 +359,12 @@
                     <i data-lucide="sigma"></i>
                 </button>
 
+                <!-- Botão de Legendas Elétricas Predefinidas (I1➔, U1...) -->
+                <button class="tool-btn btn-preset-electrical" id="btn-circuit-preset-labels" onclick="toggleCircuitLabelsModal('mignotes')" title="Legendas Elétricas Predefinidas (I1➔, U1, R1, Nós...)">
+                    <i data-lucide="tag"></i>
+                    <span class="toolbar-badge-icon">I➔</span>
+                </button>
+
                 <!-- Botão de Post-it, Marcadores de Página e Etiquetas Escolares/Emprego -->
                 <button class="tool-btn" id="btn-postit-menu" onclick="togglePostItModal()" title="Inserir Post-it, Marcador de Página ou Etiqueta">
                     <i data-lucide="sticky-note"></i>
@@ -485,6 +491,55 @@
         </div>
         <div class="ws-content" id="ws-content-symbols" style="display:none;">
             <!-- Inseridos dinamicamente pelo JS -->
+        </div>
+    </div>
+
+    <!-- ========================================================
+         MODAL: Legendas Elétricas Predefinidas (I1➔, U1, R1, Nós...)
+         ======================================================== -->
+    <div class="modal-backdrop" id="circuitLabelsModal" onclick="if(event.target===this) toggleCircuitLabelsModal()">
+        <div class="stylish-modal-card" style="max-width: 620px;">
+            <div class="stylish-modal-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="tag" style="color:#38bdf8; width:20px; height:20px;"></i>
+                    <span class="stylish-modal-title">Legendas Elétricas Predefinidas</span>
+                </div>
+                <button class="btn-close-modal" onclick="toggleCircuitLabelsModal()">✕</button>
+            </div>
+            <div class="stylish-modal-body" style="padding:14px 18px;">
+                <!-- Gerador Rápido de Legenda Personalizada -->
+                <div class="cl-quick-generator">
+                    <span class="cl-gen-label">Criar Rápido:</span>
+                    <input type="text" id="clCustomInput" class="cl-custom-input" value="I₁ →" placeholder="Ex: I₁ → ou U₁" spellcheck="false">
+                    <div class="cl-arrow-btns">
+                        <button class="cl-arrow-btn" onclick="clAppendArrow('→')" title="Seta para a Direita (→)">→</button>
+                        <button class="cl-arrow-btn" onclick="clAppendArrow('←')" title="Seta para a Esquerda (←)">←</button>
+                        <button class="cl-arrow-btn" onclick="clAppendArrow('↑')" title="Seta para Cima (↑)">↑</button>
+                        <button class="cl-arrow-btn" onclick="clAppendArrow('↓')" title="Seta para Baixo (↓)">↓</button>
+                    </div>
+                    <button class="btn-primary-action" onclick="clInserirCustom()" style="padding:4px 12px; font-size:12px;">Inserir</button>
+                </div>
+
+                <!-- Tabs de Categorias -->
+                <div class="ws-tabs" style="margin-top:10px;">
+                    <button class="ws-tab-btn active" id="cl-tab-currents" onclick="switchCircuitLabelTab('currents')">⚡ Correntes (I com setas)</button>
+                    <button class="ws-tab-btn" id="cl-tab-voltages" onclick="switchCircuitLabelTab('voltages')">🔋 Tensões (U & V)</button>
+                    <button class="ws-tab-btn" id="cl-tab-components" onclick="switchCircuitLabelTab('components')">🔌 Componentes (R, C, L, Z)</button>
+                    <button class="ws-tab-btn" id="cl-tab-nodes" onclick="switchCircuitLabelTab('nodes')">📍 Nós & Potências</button>
+                </div>
+
+                <!-- Conteúdo Tab 1: Correntes com as 4 direções -->
+                <div class="cl-tab-content" id="cl-content-currents"></div>
+
+                <!-- Conteúdo Tab 2: Tensões -->
+                <div class="cl-tab-content" id="cl-content-voltages" style="display:none;"></div>
+
+                <!-- Conteúdo Tab 3: Componentes -->
+                <div class="cl-tab-content" id="cl-content-components" style="display:none;"></div>
+
+                <!-- Conteúdo Tab 4: Nós e Potências -->
+                <div class="cl-tab-content" id="cl-content-nodes" style="display:none;"></div>
+            </div>
         </div>
     </div>
 
@@ -802,6 +857,12 @@
                     <span id="cc-btn-label-text">Escrever Legenda</span>
                 </button>
 
+                <!-- Botão Legendas Elétricas Predefinidas (I1➔, U1, R1, nós...) -->
+                <button class="tool-btn btn-preset-electrical" id="cc-btn-preset-labels" onclick="toggleCircuitLabelsModal('ccnotes')" title="Legendas Elétricas Predefinidas (I1➔, U1, R1, Nós...)">
+                    <i data-lucide="tag"></i>
+                    <span class="toolbar-badge-icon">I➔</span>
+                </button>
+
                 <!-- Botão de Fórmulas no CCnotes (Ponto 5) -->
                 <button class="tool-btn" onclick="toggleWordSymbolsModal('ccnotes')" title="Inserir Fórmula ou Símbolo Elétrico no Circuito"><i data-lucide="sigma"></i></button>
 
@@ -915,6 +976,6 @@
     </div>
 
     <!-- Script Principal com Cache Buster -->
-    <script src="app.js?v=5.1"></script>
+    <script src="app.js?v=5.2"></script>
 </body>
 </html>
