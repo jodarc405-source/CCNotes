@@ -70,7 +70,7 @@ header {
 .logo-stack {
     display: flex;
     flex-direction: column;
-    line-height: 1.05;
+    line-height: 1.2;
     user-select: none;
     margin-right: 4px;
 }
@@ -83,6 +83,7 @@ header {
     align-items: center;
     gap: 5px;
     letter-spacing: -0.3px;
+    line-height: 1.25;
 }
 
 .logo-badge {
@@ -91,6 +92,8 @@ header {
     color: #93c5fd;
     letter-spacing: 0.8px;
     margin-left: 20px;
+    margin-top: 4px;
+    line-height: 1;
 }
 
 .header-actions {
@@ -436,7 +439,7 @@ header {
 .toolbar {
     position: fixed;
     top: 56px;
-    left: 50%;
+    left: calc(250px + (100vw - 250px) / 2);
     transform: translateX(-50%);
     z-index: 40;
     background: #111827;
@@ -448,7 +451,7 @@ header {
     gap: 5px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     max-width: 95vw;
-    transition: transform 0.25s ease, opacity 0.2s ease;
+    transition: left 0.2s ease, transform 0.25s ease, opacity 0.2s ease;
 }
 
 .toolbar.toolbar-hidden {
@@ -2545,7 +2548,7 @@ body:not(.tool-select-active) .circuit-placed-block .resize-handle {
     transform: translateY(-1px);
 }
 
-/* Sistema de Pressão (Squid) na Toolbar */
+/* Sistema de Pressão do Traço na Toolbar */
 .pressure-toolbar-group {
     display: flex;
     align-items: center;
@@ -2731,3 +2734,442 @@ body:not(.tool-select-active) .circuit-placed-block .resize-handle {
 
 
 
+
+/* ========================================================
+   MELHORIAS: BARRA CENTRADA, CADERNOS COLAPSÁVEIS,
+   APAGADOR DE QUADRO & HUB DE CRIAÇÃO / HORÁRIOS
+   ======================================================== */
+
+body.sidebar-is-collapsed .toolbar,
+.sidebar.collapsed ~ .workspace .toolbar {
+    left: 50% !important;
+}
+
+/* Item 9: Cadernos Colapsáveis na Barra Lateral */
+.notebook-card.card-collapsed .notebook-tabs {
+    display: none !important;
+}
+.notebook-card.card-collapsed {
+    padding-bottom: 0.5rem;
+}
+.nb-collapse-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color 0.15s, background 0.15s;
+}
+.nb-collapse-btn:hover {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+}
+
+/* Item 8: Apagador de Quadro (Quadrado Picotado) */
+.chalkboard-eraser-box {
+    position: absolute;
+    width: 68px;
+    height: 48px;
+    border: 2px dashed #f59e0b;
+    background: rgba(245, 158, 11, 0.22);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.45), inset 0 0 8px rgba(245, 158, 11, 0.25);
+    display: none;
+    transform: translate(-50%, -50%);
+}
+
+/* Item 4: Janela Enorme de Criação (Creation Hub Modal) */
+.creation-hub-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(3, 7, 18, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+.creation-hub-content {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    width: 92vw;
+    max-width: 1100px;
+    height: 88vh;
+    max-height: 820px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+}
+.creation-hub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid #1e293b;
+    background: #111827;
+}
+.creation-hub-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.creation-hub-nav {
+    display: flex;
+    gap: 8px;
+    padding: 12px 24px;
+    background: #0b1120;
+    border-bottom: 1px solid #1e293b;
+    overflow-x: auto;
+}
+.hub-nav-btn {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.hub-nav-btn:hover, .hub-nav-btn.active {
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+.creation-hub-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+    background: #090e17;
+}
+.hub-card {
+    background: #131c2e;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 18px;
+    cursor: pointer;
+    transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.hub-card:hover {
+    transform: translateY(-3px);
+    border-color: #38bdf8;
+    box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.25);
+    background: #172338;
+}
+.hub-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+.hub-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.hub-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 4px;
+}
+.hub-card-desc {
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+.hub-card-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    align-self: flex-start;
+    margin-top: 10px;
+}
+.hub-card-btn {
+    margin-top: 14px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #38bdf8;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.15s, color 0.15s;
+}
+.hub-card:hover .hub-card-btn {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+}
+
+/* Item 3: Visualizador Dedicado de Horário com Impressão */
+.horario-fullscreen-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #0b1120;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+}
+.horario-fullscreen-header {
+    background: #111827;
+    border-bottom: 1px solid #1f2937;
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.horario-title-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.horario-badge {
+    background: #1d4ed8;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+}
+.horario-main-title {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed #4b5563;
+    color: #f9fafb;
+    font-size: 1.15rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    outline: none;
+}
+.horario-main-title:focus {
+    border-bottom: 1px solid #38bdf8;
+}
+.horario-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.horario-style-picker {
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #f3f4f6;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    outline: none;
+}
+.btn-horario-action {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+}
+.btn-horario-action:hover {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #3b82f6;
+}
+.btn-horario-print {
+    background: #059669;
+    border-color: #10b981;
+    color: #ffffff;
+}
+.btn-horario-print:hover {
+    background: #047857;
+}
+.btn-horario-close {
+    background: #dc2626;
+    border-color: #ef4444;
+    color: #ffffff;
+}
+.btn-horario-close:hover {
+    background: #b91c1c;
+}
+.horario-fullscreen-body {
+    flex: 1;
+    overflow: auto;
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: #090e17;
+}
+.horario-sheet-container {
+    background: #ffffff;
+    color: #0f172a;
+    width: 100%;
+    max-width: 1100px;
+    border-radius: 12px;
+    padding: 35px 40px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.6);
+}
+.horario-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 15px;
+}
+.horario-school-name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #1e293b;
+    outline: none;
+}
+.horario-meta-info {
+    font-size: 12px;
+    color: #64748b;
+    text-align: right;
+    outline: none;
+}
+.horario-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: inherit;
+    font-size: 13px;
+}
+.horario-grid-table th {
+    padding: 12px 10px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    border: 1px solid #cbd5e1;
+}
+.horario-grid-table td {
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #cbd5e1;
+    min-height: 48px;
+    outline: none;
+    transition: background 0.15s;
+}
+.horario-grid-table td:focus {
+    background: #eff6ff !important;
+}
+.horario-slot-time {
+    font-weight: 700;
+    color: #475569;
+    background: #f8fafc;
+    width: 90px;
+}
+
+/* Estilos de Cores do Horário */
+.theme-modern-blue .horario-grid-table th { background: #1e40af; color: #ffffff; border-color: #1d4ed8; }
+.theme-modern-blue .horario-school-name { color: #1e40af; }
+
+.theme-emerald .horario-grid-table th { background: #065f46; color: #ffffff; border-color: #047857; }
+.theme-emerald .horario-school-name { color: #065f46; }
+
+.theme-sunset .horario-grid-table th { background: linear-gradient(135deg, #c2410c, #b91c1c); color: #ffffff; border-color: #9a3412; }
+.theme-sunset .horario-school-name { color: #c2410c; }
+
+.theme-minimal-dark .horario-sheet-container { background: #1e293b; color: #f8fafc; }
+.theme-minimal-dark .horario-school-name { color: #f8fafc; }
+.theme-minimal-dark .horario-meta-info { color: #94a3b8; }
+.theme-minimal-dark .horario-grid-table th { background: #0f172a; color: #38bdf8; border-color: #334155; }
+.theme-minimal-dark .horario-grid-table td { border-color: #334155; color: #f1f5f9; }
+.theme-minimal-dark .horario-slot-time { background: #0f172a; color: #cbd5e1; }
+.theme-minimal-dark .horario-grid-table td:focus { background: #1e3a8a !important; }
+
+.theme-clean-print .horario-grid-table th { background: #f1f5f9; color: #0f172a; border-color: #94a3b8; }
+.theme-clean-print .horario-school-name { color: #0f172a; }
+
+/* REGRAS DE IMPRESSÃO DEDICADA DE HORÁRIO (Item 3) */
+@media print {
+    body.imprimindo-horario {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    body.imprimindo-horario header,
+    body.imprimindo-horario .sidebar,
+    body.imprimindo-horario .toolbar,
+    body.imprimindo-horario .workspace,
+    body.imprimindo-horario #workspace,
+    body.imprimindo-horario .horario-fullscreen-header,
+    body.imprimindo-horario .creation-hub-modal {
+        display: none !important;
+    }
+    body.imprimindo-horario #modalVisualizadorHorario {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        background: #ffffff !important;
+        padding: 0 !important;
+    }
+    body.imprimindo-horario .horario-fullscreen-body {
+        padding: 0 !important;
+        background: #ffffff !important;
+    }
+    body.imprimindo-horario .horario-sheet-container {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 10px !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        color: #000000 !important;
+    }
+    body.imprimindo-horario .horario-grid-table th,
+    body.imprimindo-horario .horario-grid-table td {
+        border: 1px solid #000000 !important;
+        color: #000000 !important;
+    }
+    body.imprimindo-horario .horario-grid-table th {
+        background: #e2e8f0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}

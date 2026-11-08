@@ -36,7 +36,7 @@ let eraserMode = 'stroke'; // 'stroke', 'ink_path', 'total'
 let currentColor = '#000000';
 let currentSize = 3;
 
-// Sistema de Pressão estilo Squid (Ponto 1)
+// Sistema de Sensibilidade à Pressão do Traço
 let isPressureEnabled = localStorage.getItem('mignotes_pressure_enabled') !== 'false';
 
 function setPressureSensitivity(enabled) {
@@ -51,7 +51,7 @@ function setPressureSensitivity(enabled) {
     });
 }
 
-let isDrawing = false;
+let isDrawing = false; esconderApagadorQuadro();
 let startX = 0, startY = 0;
 let lastCoord = null;
 let strokeStartTime = 0;
@@ -72,7 +72,7 @@ const ZOOM_LEVELS = [0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0];
 let currentZoomIdx = 3; // 1.0 (100%)
 
 // Templates de Folha A4
-const TEMPLATES = ['grid_5mm', 'lines_margin', 'dots', 'blank', 'milimetrico'];
+const TEMPLATES = ['blank', 'grid_5mm', 'lines_margin', 'dots', 'milimetrico'];
 const TEMPLATE_NAMES = {
     'grid_5mm': 'Quadriculada 5mm',
     'lines_margin': 'Pautada c/ Margem',
@@ -533,7 +533,7 @@ function renderShapeOnContext(ctx, s) {
 }
 
 // --------------------------------------------------------
-// Motor de Traço Fluido Suave (Estilo Squid) & Redesenho
+// Motor de Traço Fluido Suave & Redesenho
 // --------------------------------------------------------
 function renderSmoothFreeStroke(ctx, stroke) {
     if (!stroke.segments || stroke.segments.length === 0) return;
@@ -580,7 +580,7 @@ function renderSmoothFreeStroke(ctx, stroke) {
             continue;
         }
 
-        // Interpolação Spline com Curvas Quadráticas de Ponto Médio (Squid)
+        // Interpolação Spline com Curvas Quadráticas de Ponto Médio
         ctx.beginPath();
         ctx.moveTo(seg[0].x, seg[0].y);
 
@@ -726,6 +726,10 @@ function eraseTotal(px, py, radius) {
 }
 
 function handleEraser(x, y) {
+    if (eraserMode === 'box') {
+        eraseBox(x, y, 68, 48);
+        return;
+    }
     const rad = currentSize * 4;
     if (eraserMode === 'stroke') {
         eraseStrokeComplete(x, y, rad);
@@ -748,18 +752,31 @@ let touchLastMid = null;
 paintCanvas.addEventListener('pointerdown', (e) => {
     closeAllDropdowns();
 
-    // Toque com dedos/palma da mão: reservado estritamente para navegação fluida (arrastar e ampliar/reduzir)
+    // Toque com dedos/palma da mão: reservado para navegação fluida e Apagador de Quadro (Item 8)
     if (e.pointerType === 'touch') {
         activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        
+        // Item 8: Ao tocar com 1 dedo com a borracha em modo Apagador de Quadro, apaga o que estiver por baixo
+        if (activeTouchMap.size === 1 && currentTool === 'eraser' && eraserMode === 'box') {
+            isDrawing = true;
+            cadernoSalvarHistorico();
+            const rawTouch = getCoordinates(e);
+            lastCoord = rawTouch;
+            handleEraser(rawTouch.x, rawTouch.y);
+            mostrarApagadorQuadro(e.clientX, e.clientY);
+            return;
+        }
+
         if (activeTouchMap.size === 1) {
             touchLastMid = { x: e.clientX, y: e.clientY };
         } else if (activeTouchMap.size >= 2) {
+            esconderApagadorQuadro();
             const pts = Array.from(activeTouchMap.values());
             touchPinchDist0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             touchPinchZoom0 = currentZoomScale;
             touchLastMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
         }
-        return; // Nunca inicia traço com dedos, impedindo riscos pretos indesejados!
+        return;
     }
 
     const raw = getCoordinates(e);
@@ -903,6 +920,7 @@ paintCanvas.addEventListener('pointermove', (e) => {
 
     if (currentTool === 'eraser') {
         handleEraser(raw.x, raw.y);
+        if (eraserMode === 'box') mostrarApagadorQuadro(e.clientX, e.clientY);
         return;
     }
 
@@ -924,7 +942,7 @@ paintCanvas.addEventListener('pointermove', (e) => {
                     ptWidth = Math.max(0.8, activeStroke.size * 0.75);
                 }
             } else {
-                // Caneta estilo Squid com suporte dinâmico a pressão e velocidade
+                // Caneta de alta precisão com suporte dinâmico a pressão e velocidade
                 if (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse') {
                     ptWidth = Math.max(1, activeStroke.size * (0.35 + raw.pressure * 1.3));
                 } else {
@@ -959,7 +977,7 @@ paintCanvas.addEventListener('pointermove', (e) => {
                 targetCtx.lineTo(p1.x, p1.y);
                 targetCtx.stroke();
             } else if (len >= 3) {
-                // Curva quadrática com ponto médio (Midpoint Quadratic Bezier - Squid)
+                // Curva quadrática com ponto médio (Midpoint Quadratic Bezier)
                 const pPrev2 = lastSeg[len - 3];
                 const pPrev = lastSeg[len - 2];
                 const pCurr = lastSeg[len - 1];
@@ -2727,6 +2745,14 @@ function criarTemplateProjeto() {
     salvarNoLocalStorage();
 }
 
+function aplicarPapelLisa() {
+    templateIdx = TEMPLATES.indexOf('blank');
+    if (templateIdx === -1) templateIdx = 0;
+    salvarNoLocalStorage();
+    desenharTemplate();
+    atualizarNomeTemplate();
+}
+
 function aplicarPapelMilimetrico() {
     cadernoSalvarHistorico();
     templateIdx = TEMPLATES.indexOf('milimetrico');
@@ -3288,17 +3314,90 @@ function selectShape(shape, iconName, label) {
     closeAllDropdowns();
 }
 
+let lastEraserType = localStorage.getItem('ccnotes_last_eraser') || 'stroke';
+
+function clicarBotaoBorracha(event) {
+    // Se o utilizador clicou no botão da borracha e ela não estava ativa,
+    // ativa imediatamente o último modo de borracha usado (Item 7)
+    if (currentTool !== 'eraser') {
+        setEraserType(lastEraserType || 'stroke');
+    } else {
+        // Se já está ativa, abre/fecha o menu dropdown de seleção
+        toggleDropdown('eraser-dropdown');
+    }
+}
+
 function setEraserType(type) {
     eraserMode = type;
+    lastEraserType = type;
+    localStorage.setItem('ccnotes_last_eraser', type);
     currentTool = 'eraser';
     document.body.classList.toggle('tool-select-active', false);
     document.body.classList.toggle('tool-is-drawing', true);
     document.querySelectorAll('.toolbar .tool-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-eraser-menu').classList.add('active');
+    const btnEraser = document.getElementById('btn-eraser-menu');
+    if (btnEraser) btnEraser.classList.add('active');
     document.querySelectorAll('#eraser-dropdown .dropdown-item').forEach(i => i.classList.remove('active'));
     const item = document.getElementById(`item-eraser-${type}`);
     if (item) item.classList.add('active');
     closeAllDropdowns();
+}
+
+function mostrarApagadorQuadro(clientX, clientY) {
+    const el = document.getElementById('chalkboardEraserBox');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.left = `${clientX}px`;
+    el.style.top = `${clientY}px`;
+}
+
+function esconderApagadorQuadro() {
+    const el = document.getElementById('chalkboardEraserBox');
+    if (el) el.style.display = 'none';
+}
+
+// Apagador de Quadro (Quadrado Picotado - Item 8)
+function eraseBox(px, py, boxW = 68, boxH = 48) {
+    const minX = px - boxW / 2;
+    const maxX = px + boxW / 2;
+    const minY = py - boxH / 2;
+    const maxY = py + boxH / 2;
+
+    let initialCount = currentStrokes.length;
+    currentStrokes = currentStrokes.filter(s => {
+        if (s.type === 'shape') {
+            const sMinX = Math.min(s.x0, s.x1);
+            const sMaxX = Math.max(s.x0, s.x1);
+            const sMinY = Math.min(s.y0, s.y1);
+            const sMaxY = Math.max(s.y0, s.y1);
+            return (sMaxX < minX || sMinX > maxX || sMaxY < minY || sMinY > maxY);
+        } else if (s.type === 'free' && s.segments) {
+            for (let seg of s.segments) {
+                for (let pt of seg) {
+                    if (pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    });
+
+    // Apagar também elementos colocados se a caixa passar por cima
+    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => {
+        const left = parseFloat(b.style.left) || 0;
+        const top = parseFloat(b.style.top) || 0;
+        const w = b.offsetWidth || 50;
+        const h = b.offsetHeight || 50;
+        if (!(left + w < minX || left > maxX || top + h < minY || top > maxY)) {
+            b.remove();
+        }
+    });
+
+    if (currentStrokes.length !== initialCount) {
+        redrawStrokes();
+        salvarNoLocalStorage();
+    }
 }
 
 function selectSwatch(el, color) {
@@ -3340,11 +3439,27 @@ function setSize(size) {
     if (pDot) { pDot.style.width = Math.min(24, currentSize) + 'px'; pDot.style.height = Math.min(24, currentSize) + 'px'; }
 }
 
+function posicionarToolbarAoCentroDaFolha() {
+    const ws = document.getElementById('workspace');
+    const tb = document.getElementById('toolbar');
+    if (!ws || !tb) return;
+    const r = ws.getBoundingClientRect();
+    const centerX = Math.round(r.left + r.width / 2);
+    tb.style.left = `${centerX}px`;
+}
+
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     isSidebarOpen = !isSidebarOpen;
-    sb.classList.toggle('collapsed', !isSidebarOpen);
+    if (sb) sb.classList.toggle('collapsed', !isSidebarOpen);
+    document.body.classList.toggle('sidebar-is-collapsed', !isSidebarOpen);
+    posicionarToolbarAoCentroDaFolha();
+    setTimeout(posicionarToolbarAoCentroDaFolha, 220);
 }
+
+window.addEventListener('resize', () => {
+    posicionarToolbarAoCentroDaFolha();
+});
 
 function executarImpressao() {
     closeAllDropdowns();
@@ -4073,8 +4188,8 @@ function guardarEstadoAtual() {
     };
 }
 
-function carregarPagina(cad, tab, pageIdx = 0) {
-    guardarEstadoAtual();
+function carregarPagina(cad, tab, pageIdx = 0, guardarAnterior = true) {
+    if (guardarAnterior) guardarEstadoAtual();
 
     activeNotebook = cad;
     activeTab = tab;
@@ -4301,7 +4416,7 @@ function renderCadernosSidebar() {
     activeSidebarNotebooks.forEach(cad => {
         if (!notebooks[cad]) return;
         const card = document.createElement('div');
-        card.className = 'notebook-card' + (cad === activeNotebook ? ' active' : '');
+        
 
         const tabs = (notebooks[cad] && Array.isArray(notebooks[cad].tabs)) ? notebooks[cad].tabs : ["Teoria", "Exercícios"];
         let tabsHTML = '';
@@ -4313,7 +4428,12 @@ function renderCadernosSidebar() {
             tabsHTML += `<span class="tab-chip ${isTabActive ? 'active' : ''}" onclick="event.stopPropagation(); carregarPagina('${cad}', '${tab}', 0); renderCadernosSidebar();">${tab}${delBtn}</span>`;
         });
 
-        card.innerHTML = `
+        let collapsedNotebooks = {};
+try { collapsedNotebooks = JSON.parse(localStorage.getItem('ccnotes_collapsed_notebooks') || '{}'); } catch(e) {}
+const isCardCollapsed = !!collapsedNotebooks[cad];
+card.className = 'notebook-card' + (cad === activeNotebook ? ' active' : '') + (isCardCollapsed ? ' card-collapsed' : '');
+
+card.innerHTML = `
             <div class="notebook-header">
                 <span style="display:flex; align-items:center; gap:8px;">
                     <svg viewBox="0 0 24 28" width="18" height="21" fill="none" style="flex-shrink:0;">
@@ -4326,6 +4446,7 @@ function renderCadernosSidebar() {
                     <strong>${cad}</strong>
                 </span>
                 <span style="display:flex; align-items:center; gap:6px;">
+                    <button class="nb-collapse-btn" onclick="event.stopPropagation(); alternarMinimizarCaderno('${cad}')" title="${isCardCollapsed ? 'Expandir Caderno' : 'Minimizar Caderno'}">${isCardCollapsed ? '▶' : '▼'}</button>
                     <span style="font-size:11px; cursor:pointer; color:#38bdf8; font-weight:700;" onclick="event.stopPropagation(); adicionarAba('${cad}')" title="Adicionar Separador">+ Tab</span>
                     <button class="nb-remove-btn" onclick="event.stopPropagation(); tirarCadernoDaBarra('${cad}')" title="Tirar da barra lateral / Organizar">✕</button>
                 </span>
@@ -4384,18 +4505,27 @@ function apagarCadernoDefinitivamente() {
         return;
     }
 
-    delete notebooks[cad];
+    // 1. Determinar o próximo caderno ativo antes de eliminar
+    const remainingKeys = Object.keys(notebooks).filter(k => k !== cad);
     activeSidebarNotebooks = activeSidebarNotebooks.filter(c => c !== cad);
-    localStorage.setItem('activeSidebarNotebooks', JSON.stringify(activeSidebarNotebooks));
-
-    const remainingKeys = Object.keys(notebooks);
     const nextCad = activeSidebarNotebooks[0] || remainingKeys[0];
     if (!activeSidebarNotebooks.includes(nextCad)) activeSidebarNotebooks.push(nextCad);
+    localStorage.setItem('activeSidebarNotebooks', JSON.stringify(activeSidebarNotebooks));
 
-    const tabs = (notebooks[nextCad] && notebooks[nextCad].tabs) || ["Teoria", "Exercícios"];
-    carregarPagina(nextCad, tabs[0], 0);
-    renderCadernosSidebar();
+    // 2. Apagar do objeto notebooks em memória
+    delete notebooks[cad];
+
+    // 3. Atualizar as variáveis globais para o novo caderno
+    const nextTabs = (notebooks[nextCad] && notebooks[nextCad].tabs) || ["Teoria", "Exercícios"];
+    activeNotebook = nextCad;
+    activeTab = nextTabs[0];
+
+    // 4. Carregar página sem gravar estado do caderno eliminado
+    carregarPagina(nextCad, nextTabs[0], 0, false);
+
+    // 5. Salvar base de dados e renderizar dropdown e sidebar atualizados
     salvarNoLocalStorage();
+    renderCadernosSidebar();
 }
 
 function removerAba(cad, tab) {
@@ -7178,127 +7308,134 @@ function ccDrawWirePreview(b) {
 // Totalmente limpo: sem caixas, sem bordas e sem pontos azuis!
 // --------------------------------------------------------
 function inserirCircuitoNaNota() {
-    if (ccState.parts.length === 0 && ccState.wires.length === 0) {
-        alert("Desenhe primeiro algum componente ou fio no circuito antes de o inserir.");
-        return;
-    }
+    try {
+        if (ccState.parts.length === 0 && ccState.wires.length === 0) {
+            alert("Desenhe primeiro algum componente ou fio no circuito antes de o inserir.");
+            return;
+        }
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    
-    // Bounds dos fios
-    ccState.wires.forEach(w => {
-        minX = Math.min(minX, w.x1, w.x2);
-        minY = Math.min(minY, w.y1, w.y2);
-        maxX = Math.max(maxX, w.x1, w.x2);
-        maxY = Math.max(maxY, w.y1, w.y2);
-    });
-
-    // Bounds dos componentes, terminais e legendas completas
-    ccState.parts.forEach(p => {
-        const h = (p.size || 50) / 2;
-        minX = Math.min(minX, p.x - h);
-        maxX = Math.max(maxX, p.x + h);
-        minY = Math.min(minY, p.y - h);
-        maxY = Math.max(maxY, p.y + h);
-
-        // Terminais absolutos reais
-        const terms = ccGetPartAbsoluteTerminals(p);
-        terms.forEach(([tx, ty]) => {
-            minX = Math.min(minX, tx - 5);
-            maxX = Math.max(maxX, tx + 5);
-            minY = Math.min(minY, ty - 5);
-            maxY = Math.max(maxY, ty + 5);
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        
+        // Bounds dos fios
+        ccState.wires.forEach(w => {
+            minX = Math.min(minX, w.x1, w.x2);
+            minY = Math.min(minY, w.y1, w.y2);
+            maxX = Math.max(maxX, w.x1, w.x2);
+            maxY = Math.max(maxY, w.y1, w.y2);
         });
 
-        // Bounding box das legendas de componentes (NUNCA cortar R1, 10k, V1, etc.)
-        if (p.label && p.label.trim()) {
-            const rot = (p.rotation || 0) % 360;
-            const isVertical = (rot === 90 || rot === 270);
-            const approxLen = p.label.trim().length * 8.5; // ~8.5px por caractere Segoe UI bold 11px
+        // Bounds dos componentes, terminais e legendas completas
+        ccState.parts.forEach(p => {
+            const h = (p.size || 50) / 2;
+            minX = Math.min(minX, p.x - h);
+            maxX = Math.max(maxX, p.x + h);
+            minY = Math.min(minY, p.y - h);
+            maxY = Math.max(maxY, p.y + h);
 
-            if (isVertical) {
-                const lx = p.x + h + 18;
-                const ly = p.y + 4;
-                minX = Math.min(minX, lx);
-                maxX = Math.max(maxX, lx + approxLen + 12);
-                minY = Math.min(minY, ly - 14);
-                maxY = Math.max(maxY, ly + 6);
-            } else {
-                const isGnd = (p.symbol === 'gnd');
-                const lx = p.x;
-                const ly = isGnd ? p.y + h + 22 : p.y - h - 14;
-                const halfW = (approxLen / 2) + 8;
-                minX = Math.min(minX, lx - halfW);
-                maxX = Math.max(maxX, lx + halfW);
-                minY = Math.min(minY, ly - 14);
-                maxY = Math.max(maxY, ly + 6);
+            // Terminais absolutos reais (objetos com {x, y})
+            const terms = ccGetPartAbsoluteTerminals(p);
+            terms.forEach(t => {
+                const tx = t.x, ty = t.y;
+                minX = Math.min(minX, tx - 5);
+                maxX = Math.max(maxX, tx + 5);
+                minY = Math.min(minY, ty - 5);
+                maxY = Math.max(maxY, ty + 5);
+            });
+
+            // Bounding box das legendas de componentes (NUNCA cortar R1, 10k, V1, etc.)
+            if (p.label && p.label.trim()) {
+                const rot = (p.rotation || 0) % 360;
+                const isVertical = (rot === 90 || rot === 270);
+                const approxLen = p.label.trim().length * 8.5; // ~8.5px por caractere Segoe UI bold 11px
+
+                if (isVertical) {
+                    const lx = p.x + h + 18;
+                    const ly = p.y + 4;
+                    minX = Math.min(minX, lx);
+                    maxX = Math.max(maxX, lx + approxLen + 12);
+                    minY = Math.min(minY, ly - 14);
+                    maxY = Math.max(maxY, ly + 6);
+                } else {
+                    const isGnd = (p.symbol === 'gnd');
+                    const lx = p.x;
+                    const ly = isGnd ? p.y + h + 22 : p.y - h - 14;
+                    const halfW = (approxLen / 2) + 8;
+                    minX = Math.min(minX, lx - halfW);
+                    maxX = Math.max(maxX, lx + halfW);
+                    minY = Math.min(minY, ly - 14);
+                    maxY = Math.max(maxY, ly + 6);
+                }
             }
+        });
+
+        // Bounds de anotações técnicas e legendas elétricas no circuito
+        (ccState.annotations || []).forEach(ann => {
+            const text = ann.tex || ann.text || '';
+            if (!text.trim()) return;
+            const fSize = ann.fontSize || 11;
+            const approxW = Math.max(28, text.length * (fSize * 0.8) + 16);
+            const approxH = fSize * 1.5 + 8;
+            minX = Math.min(minX, ann.x - 4);
+            minY = Math.min(minY, ann.y - 4);
+            maxX = Math.max(maxX, ann.x + approxW);
+            maxY = Math.max(maxY, ann.y + approxH);
+        });
+
+        if (minX === Infinity) { minX = 0; maxX = 100; minY = 0; maxY = 80; }
+
+        // Margem de segurança adequada para NUNCA cortar legendas nem terminais
+        const pad = 22;
+        minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+        const width = Math.max(30, Math.round(maxX - minX));
+        const height = Math.max(30, Math.round(maxY - minY));
+
+        const svgClone = document.createElementNS(CC_NS, 'svg');
+        svgClone.setAttribute('width', width);
+        svgClone.setAttribute('height', height);
+        svgClone.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+        svgClone.style.background = 'transparent';
+
+        const gWires = document.getElementById('ccWiresLayer').cloneNode(true);
+        const gJunc = document.getElementById('ccJunctionsLayer').cloneNode(true);
+        const gParts = document.getElementById('ccComponentsLayer').cloneNode(true);
+        const gAnn = document.getElementById('ccAnnotationsLayer').cloneNode(true);
+
+        // REMOVER BORDAS E PONTOS AZUIS COMPLETAMENTE (Ponto 2)
+        gParts.querySelectorAll('rect[stroke="#0284c7"], circle.cc-dim-handle, circle.cc-pin-dot').forEach(r => r.remove());
+        gAnn.querySelectorAll('.cc-annotation-math, .cc-annotation-circuit-label').forEach(el => {
+            el.style.border = 'none';
+            el.style.background = 'transparent';
+        });
+
+        svgClone.appendChild(gWires);
+        svgClone.appendChild(gJunc);
+        svgClone.appendChild(gParts);
+        svgClone.appendChild(gAnn);
+
+        const svgXml = new XMLSerializer().serializeToString(svgClone);
+        const snapshotData = JSON.parse(JSON.stringify(ccState));
+
+        // Se estiver a editar um bloco existente, atualiza o próprio bloco
+        if (ccEditingBlock && document.body.contains(ccEditingBlock)) {
+            ccEditingBlock.dataset.svgRaw = svgXml;
+            ccEditingBlock.dataset.circuitData = JSON.stringify(snapshotData);
+            const inner = ccEditingBlock.querySelector('.circuit-inner-svg');
+            if (inner) inner.innerHTML = svgXml;
+            ccEditingBlock = null;
+        } else {
+            const spawnX = Math.max(40, (A4_WIDTH - width) / 2);
+            const wsTop = workspace ? (workspace.scrollTop || 0) : 0;
+            const spawnY = Math.max(80, Math.min(A4_HEIGHT - height - 100, wsTop + 140));
+            criarBlocoCircuitoNaFolha(svgXml, spawnX, spawnY, 1.0, 0, snapshotData);
         }
-    });
 
-    // Bounds de anotações técnicas e legendas elétricas no circuito
-    (ccState.annotations || []).forEach(ann => {
-        const text = ann.tex || ann.text || '';
-        if (!text.trim()) return;
-        const fSize = ann.fontSize || 11;
-        const approxW = Math.max(28, text.length * (fSize * 0.8) + 16);
-        const approxH = fSize * 1.5 + 8;
-        minX = Math.min(minX, ann.x - 4);
-        minY = Math.min(minY, ann.y - 4);
-        maxX = Math.max(maxX, ann.x + approxW);
-        maxY = Math.max(maxY, ann.y + approxH);
-    });
-
-    if (minX === Infinity) { minX = 0; maxX = 100; minY = 0; maxY = 80; }
-
-    // Margem de segurança adequada para NUNCA cortar legendas nem terminais
-    const pad = 22;
-    minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-    const width = Math.max(30, Math.round(maxX - minX));
-    const height = Math.max(30, Math.round(maxY - minY));
-
-    const svgClone = document.createElementNS(CC_NS, 'svg');
-    svgClone.setAttribute('width', width);
-    svgClone.setAttribute('height', height);
-    svgClone.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
-    svgClone.style.background = 'transparent';
-
-    const gWires = document.getElementById('ccWiresLayer').cloneNode(true);
-    const gJunc = document.getElementById('ccJunctionsLayer').cloneNode(true);
-    const gParts = document.getElementById('ccComponentsLayer').cloneNode(true);
-    const gAnn = document.getElementById('ccAnnotationsLayer').cloneNode(true);
-
-    // REMOVER BORDAS E PONTOS AZUIS COMPLETAMENTE (Ponto 2)
-    gParts.querySelectorAll('rect[stroke="#0284c7"], circle.cc-dim-handle, circle.cc-pin-dot').forEach(r => r.remove());
-    gAnn.querySelectorAll('.cc-annotation-math, .cc-annotation-circuit-label').forEach(el => {
-        el.style.border = 'none';
-        el.style.background = 'transparent';
-    });
-
-    svgClone.appendChild(gWires);
-    svgClone.appendChild(gJunc);
-    svgClone.appendChild(gParts);
-    svgClone.appendChild(gAnn);
-
-    const svgXml = new XMLSerializer().serializeToString(svgClone);
-    const snapshotData = JSON.parse(JSON.stringify(ccState));
-
-    // Se estiver a editar um bloco existente, atualiza o próprio bloco
-    if (ccEditingBlock && document.body.contains(ccEditingBlock)) {
-        ccEditingBlock.dataset.svgRaw = svgXml;
-        ccEditingBlock.dataset.circuitData = JSON.stringify(snapshotData);
-        const inner = ccEditingBlock.querySelector('.circuit-inner-svg');
-        if (inner) inner.innerHTML = svgXml;
-        ccEditingBlock = null;
-    } else {
-        const spawnX = Math.max(40, (A4_WIDTH - width) / 2);
-        const spawnY = Math.max(80, Math.min(A4_HEIGHT - height - 100, workspace.scrollTop + 140));
-        criarBlocoCircuitoNaFolha(svgXml, spawnX, spawnY, 1.0, 0, snapshotData);
+        resetComponentCounters(); // Novo circuito elétrico futuro começará do início (R1, V1, etc.)
+        fecharCCnotesModal();
+        salvarNoLocalStorage();
+    } catch (err) {
+        console.error("Erro ao inserir circuito na nota:", err);
+        alert("Erro ao inserir circuito na folha: " + err.message);
     }
-
-    resetComponentCounters(); // Novo circuito elétrico futuro começará do início (R1, V1, etc.)
-    fecharCCnotesModal();
-    salvarNoLocalStorage();
 }
 
 // --------------------------------------------------------
@@ -7333,6 +7470,7 @@ window.addEventListener('DOMContentLoaded', () => {
     aplicarZoom();
     atualizarContadorFolhas();
     setTool('pen');
+    posicionarToolbarAoCentroDaFolha();
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -7364,3 +7502,110 @@ window.addEventListener('click', (e) => {
         if (clm) clm.classList.remove('active');
     }
 });
+
+function alternarMinimizarCaderno(cad) {
+    let collapsedNotebooks = {};
+    try { collapsedNotebooks = JSON.parse(localStorage.getItem('ccnotes_collapsed_notebooks') || '{}'); } catch(e) {}
+    collapsedNotebooks[cad] = !collapsedNotebooks[cad];
+    localStorage.setItem('ccnotes_collapsed_notebooks', JSON.stringify(collapsedNotebooks));
+    renderCadernosSidebar();
+}
+
+// ========================================================
+// ITEM 4: JANELA ENORME DE CRIAÇÃO (CREATION HUB MODAL)
+// ========================================================
+function abrirModalCentralCriar() {
+    closeAllDropdowns();
+    const modal = document.getElementById('modalCentralCriar');
+    if (modal) modal.style.display = 'flex';
+    if (window.lucide) lucide.createIcons();
+}
+
+function fecharModalCentralCriar() {
+    const modal = document.getElementById('modalCentralCriar');
+    if (modal) modal.style.display = 'none';
+}
+
+function filtrarHubCriar(cat, btn) {
+    document.querySelectorAll('.hub-nav-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    
+    document.querySelectorAll('#hubCardsGrid .hub-card').forEach(card => {
+        if (cat === 'tudo' || card.dataset.cat === cat) {
+            card.style.display = 'flex';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+// ========================================================
+// ITEM 3: VISUALIZADOR DEDICADO DE HORÁRIO COM IMPRESSÃO
+// ========================================================
+let horarioTemaAtual = 'modern-blue';
+
+function abrirVisualizadorHorario(tema = 'modern-blue') {
+    closeAllDropdowns();
+    const modal = document.getElementById('modalVisualizadorHorario');
+    if (!modal) return;
+    
+    modal.style.display = 'flex';
+    mudarEstiloHorario(tema);
+    
+    const sel = document.getElementById('horarioEstiloSelect');
+    if (sel) sel.value = tema;
+
+    if (window.lucide) lucide.createIcons();
+}
+
+function fecharVisualizadorHorario() {
+    const modal = document.getElementById('modalVisualizadorHorario');
+    if (modal) modal.style.display = 'none';
+}
+
+function mudarEstiloHorario(tema) {
+    horarioTemaAtual = tema;
+    const bodyContainer = document.getElementById('horarioFullscreenContainer');
+    if (!bodyContainer) return;
+    
+    bodyContainer.className = 'horario-fullscreen-body theme-' + tema;
+}
+
+function imprimirHorarioDedicado() {
+    document.body.classList.add('imprimindo-horario');
+    window.print();
+    setTimeout(() => {
+        document.body.classList.remove('imprimindo-horario');
+    }, 500);
+}
+
+function inserirHorarioDedicadoNaNota() {
+    const container = document.getElementById('horarioFullscreenContainer');
+    if (!container) return;
+    const sheet = container.querySelector('.horario-sheet-container');
+    if (!sheet) return;
+
+    cadernoSalvarHistorico();
+    const div = document.createElement('div');
+    div.className = 'placed-template-block template-horario';
+    div.dataset.templateType = 'horario';
+    div.style.left = '30px';
+    div.style.top = '80px';
+    div.style.width = '730px';
+
+    div.innerHTML = `
+        <div class="template-header">
+            <span class="template-title">📅 ${document.getElementById('horarioTituloInput')?.value || 'HORÁRIO ESCOLAR'}</span>
+            <div class="template-actions">
+                <button class="template-btn-del" onclick="this.closest('.placed-template-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Remover Template">✕</button>
+            </div>
+        </div>
+        ${sheet.querySelector('table').outerHTML}
+    `;
+
+    ativarInteracaoTemplate(div);
+    placedBlocksContainer.appendChild(div);
+    salvarNoLocalStorage();
+    fecharVisualizadorHorario();
+    alert("Horário inserido na folha de notas!");
+}

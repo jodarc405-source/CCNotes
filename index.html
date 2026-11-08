@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.2">
+    <link rel="stylesheet" href="style.css?v=5.3">
 </head>
 <body>
     <header>
@@ -90,7 +90,7 @@
 
             <!-- Menu Dropdown Criar... (Cadernos, Horários, Exercícios, Relatório, Templates, Fundo) -->
             <div class="sidebar-create-group">
-                <button class="btn-new-nb btn-stylish-nb" onclick="toggleCriarDropdown(event)" id="btnCriarDropdown" title="Criar novos cadernos, horários ou importar templates">
+                <button class="btn-new-nb btn-stylish-nb" onclick="abrirModalCentralCriar()" id="btnCriarDropdown" title="Centro de Criação: Horários, Cadernos, Exercícios e Templates">
                     <i data-lucide="plus-circle" style="width:16px; height:16px;"></i>
                     <span>+ Criar...</span>
                     <i data-lucide="chevron-down" style="width:14px; height:14px; margin-left:auto;"></i>
@@ -142,7 +142,7 @@
                             <div class="color-swatch" style="background:#9333ea" onclick="selectSwatch(this, '#9333ea')"></div>
                             <input type="color" id="pen-color-picker" value="#000000" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
                         </div>
-                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão estilo Squid">
+                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão do traço">
                             <input type="checkbox" class="chk-pressure-input" onchange="setPressureSensitivity(this.checked)" checked>
                             <span>Sensibilidade à Pressão</span>
                         </label>
@@ -170,7 +170,7 @@
                             <div class="color-swatch" style="background:#dc2626" onclick="selectSwatch(this, '#dc2626')"></div>
                             <input type="color" id="pencil-color-picker" value="#475569" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
                         </div>
-                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão estilo Squid">
+                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão do traço">
                             <input type="checkbox" class="chk-pressure-input" onchange="setPressureSensitivity(this.checked)" checked>
                             <span>Sensibilidade à Pressão</span>
                         </label>
@@ -199,7 +199,7 @@
                             <div class="color-swatch" style="background:#c084fc" onclick="selectSwatch(this, '#c084fc')"></div>
                             <input type="color" id="high-color-picker" value="#facc15" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
                         </div>
-                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão estilo Squid">
+                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão do traço">
                             <input type="checkbox" class="chk-pressure-input" onchange="setPressureSensitivity(this.checked)" checked>
                             <span>Sensibilidade à Pressão</span>
                         </label>
@@ -337,13 +337,16 @@
 
                 <!-- Menu Dropdown: Borrachas Inteligentes -->
                 <div class="tool-group">
-                    <button class="tool-btn" id="btn-eraser-menu" onclick="toggleDropdown('eraser-dropdown')" title="Borrachas">
+                                        <button class="tool-btn" id="btn-eraser-menu" onclick="clicarBotaoBorracha(event)" title="Borracha Inteligente">
                         <i data-lucide="eraser"></i>
-                        <span class="tool-arrow">▼</span>
+                        <span class="tool-arrow" onclick="event.stopPropagation(); toggleDropdown('eraser-dropdown');">▼</span>
                     </button>
                     <div id="eraser-dropdown" class="dropdown-menu">
                         <button class="dropdown-item active" id="item-eraser-stroke" onclick="setEraserType('stroke')">
                             <i data-lucide="scissors"></i> Borracha de Linha Completa (Toca e apaga)
+                        </button>
+                        <button class="dropdown-item" id="item-eraser-box" onclick="setEraserType('box')">
+                            <i data-lucide="square-dashed"></i> Apagador de Quadro (Retângulo Picotado)
                         </button>
                         <button class="dropdown-item" id="item-eraser-ink" onclick="setEraserType('ink_path')">
                             <i data-lucide="pen-tool"></i> Borracha de Tinta Cirúrgica (Path)
@@ -408,8 +411,8 @@
 
                 <div class="divider"></div>
 
-                <!-- Sistema de Pressão estilo Squid (Ponto 1) -->
-                <div class="pressure-toolbar-group" title="Ativar/Desativar Sistema de Pressão da Caneta (Estilo Squid)">
+                <!-- Sistema de Sensibilidade à Pressão da Caneta -->
+                <div class="pressure-toolbar-group" title="Ativar/Desativar Sensibilidade à Pressão da Caneta">
                     <label class="pressure-pill-label">
                         <input type="checkbox" id="chk-pressure-global" onchange="setPressureSensitivity(this.checked)" checked>
                         <i data-lucide="activity" style="width:12px; height:12px;"></i>
@@ -975,7 +978,335 @@
         </div>
     </div>
 
+    
+    <!-- Item 8: Elemento Visual do Apagador de Quadro Picotado -->
+    <div id="chalkboardEraserBox" class="chalkboard-eraser-box"></div>
+
+    <!-- Item 4: JANELA ENORME DE CRIAÇÃO (Centro de Criação & Templates) -->
+    <div id="modalCentralCriar" class="creation-hub-modal" style="display:none;" onclick="if(event.target===this) fecharModalCentralCriar()">
+        <div class="creation-hub-content">
+            <div class="creation-hub-header">
+                <div class="creation-hub-title">
+                    <i data-lucide="sparkles" style="color:#38bdf8;"></i> Centro de Criação & Templates
+                </div>
+                <button class="btn-modal-cancel" onclick="fecharModalCentralCriar()" style="padding:6px 12px; font-weight:700;">✕ Fechar</button>
+            </div>
+            <div class="creation-hub-nav">
+                <button class="hub-nav-btn active" onclick="filtrarHubCriar('tudo', this)"><i data-lucide="layout-grid"></i> Todos</button>
+                <button class="hub-nav-btn" onclick="filtrarHubCriar('horarios', this)"><i data-lucide="calendar"></i> Horários & Agendas</button>
+                <button class="hub-nav-btn" onclick="filtrarHubCriar('estudo', this)"><i data-lucide="file-text"></i> Fichas & Laboratório</button>
+                <button class="hub-nav-btn" onclick="filtrarHubCriar('postits', this)"><i data-lucide="sticky-note"></i> Post-its & Etiquetas</button>
+                <button class="hub-nav-btn" onclick="filtrarHubCriar('papeis', this)"><i data-lucide="grid"></i> Papéis & Fundos</button>
+                <button class="hub-nav-btn" onclick="filtrarHubCriar('cadernos', this)"><i data-lucide="book-plus"></i> Novo Caderno</button>
+            </div>
+            <div class="creation-hub-body" id="hubCardsGrid">
+                <!-- Horários com Vários Estilos Atraentes (Item 3 & 4) -->
+                <div class="hub-card" data-cat="horarios" onclick="abrirVisualizadorHorario('modern-blue'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(30,64,175,0.25); color:#60a5fa;"><i data-lucide="calendar"></i></div>
+                        <div>
+                            <div class="hub-card-title">Horário Académico / Universitário</div>
+                            <div class="hub-card-desc">Design profissional em azul executivo, ideal para cursos e engenharias. Pronto a preencher e imprimir.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#1e3a8a; color:#93c5fd;">Com Impressão A4</span>
+                    <button class="hub-card-btn">Abrir Horário & Imprimir</button>
+                </div>
+
+                <div class="hub-card" data-cat="horarios" onclick="abrirVisualizadorHorario('sunset'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(194,65,12,0.25); color:#fb923c;"><i data-lucide="clock"></i></div>
+                        <div>
+                            <div class="hub-card-title">Horário Dinâmico Sunset</div>
+                            <div class="hub-card-desc">Gradiente moderno e vibrante para organização semanal de aulas, desporto e atividades.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#7c2d12; color:#fdba74;">Estilo Vibrante</span>
+                    <button class="hub-card-btn">Abrir Horário & Imprimir</button>
+                </div>
+
+                <div class="hub-card" data-cat="horarios" onclick="abrirVisualizadorHorario('emerald'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(6,95,70,0.25); color:#34d399;"><i data-lucide="calendar-check"></i></div>
+                        <div>
+                            <div class="hub-card-title">Horário Técnico Esmeralda</div>
+                            <div class="hub-card-desc">Estrutura límpida com foco em blocos de laboratório, ensaios práticos e sessões de estudo.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#064e3b; color:#6ee7b7;">Engenharia</span>
+                    <button class="hub-card-btn">Abrir Horário & Imprimir</button>
+                </div>
+
+                <div class="hub-card" data-cat="horarios" onclick="abrirVisualizadorHorario('minimal-dark'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(15,23,42,0.5); color:#94a3b8;"><i data-lucide="moon"></i></div>
+                        <div>
+                            <div class="hub-card-title">Horário Dark Mode Minimal</div>
+                            <div class="hub-card-desc">Estilo escuro futurista com contraste apurado, confortável para leitura noturna e ecrãs OLED.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#0f172a; color:#cbd5e1;">Dark Mode</span>
+                    <button class="hub-card-btn">Abrir Horário</button>
+                </div>
+
+                <div class="hub-card" data-cat="horarios" onclick="abrirVisualizadorHorario('clean-print'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(241,245,249,0.15); color:#f8fafc;"><i data-lucide="printer"></i></div>
+                        <div>
+                            <div class="hub-card-title">Horário Clean Print (Económico)</div>
+                            <div class="hub-card-desc">Contornos finos a preto e branco sem desperdício de tinta, ideal para fotocópia e afixação.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#334155; color:#f8fafc;">Económico</span>
+                    <button class="hub-card-btn">Abrir & Imprimir</button>
+                </div>
+
+                <!-- Fichas & Laboratório -->
+                <div class="hub-card" data-cat="estudo" onclick="criarTemplateExercicios(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(59,130,246,0.2); color:#60a5fa;"><i data-lucide="file-text"></i></div>
+                        <div>
+                            <div class="hub-card-title">Folha de Exercícios / Resumo</div>
+                            <div class="hub-card-desc">Secções para Enunciado, Fórmulas teóricas e Resolução passo a passo.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#1e3a8a; color:#93c5fd;">Estudo Ativo</span>
+                    <button class="hub-card-btn">Inserir na Folha</button>
+                </div>
+
+                <div class="hub-card" data-cat="estudo" onclick="criarTemplateLaboratorio(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(16,185,129,0.2); color:#34d399;"><i data-lucide="flask-conical"></i></div>
+                        <div>
+                            <div class="hub-card-title">Relatório de Ensaio / Laboratório</div>
+                            <div class="hub-card-desc">Tabela de medições experimentais, cálculo de erros, materiais e conclusões técnicas.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#064e3b; color:#6ee7b7;">Laboratório</span>
+                    <button class="hub-card-btn">Inserir na Folha</button>
+                </div>
+
+                <div class="hub-card" data-cat="estudo" onclick="criarTemplatePlaneamento(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(234,179,8,0.2); color:#facc15;"><i data-lucide="check-square"></i></div>
+                        <div>
+                            <div class="hub-card-title">Tabela de Metas & Planeamento</div>
+                            <div class="hub-card-desc">Grelha de acompanhamento de tarefas, prazos, prioridades e estado de execução.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#713f12; color:#fde047;">Produtividade</span>
+                    <button class="hub-card-btn">Inserir na Folha</button>
+                </div>
+
+                <!-- Post-its & Etiquetas -->
+                <div class="hub-card" data-cat="postits" onclick="inserirPostIt('yellow'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(254,240,138,0.3); color:#fef08a;"><i data-lucide="sticky-note"></i></div>
+                        <div>
+                            <div class="hub-card-title">Post-it Amarelo Canário</div>
+                            <div class="hub-card-desc">Nota rápida adesiva reposicionável com cabeçalho com alfinete e texto editável.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#713f12; color:#fef08a;">Clássico</span>
+                    <button class="hub-card-btn">Adicionar Post-it</button>
+                </div>
+
+                <div class="hub-card" data-cat="postits" onclick="inserirPostIt('blue'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(186,230,253,0.3); color:#7dd3fc;"><i data-lucide="sticky-note"></i></div>
+                        <div>
+                            <div class="hub-card-title">Post-it Azul Céu</div>
+                            <div class="hub-card-desc">Ideal para anotações teóricas, lembretes de exames e observações importantes.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#0c4a6e; color:#7dd3fc;">Anotações</span>
+                    <button class="hub-card-btn">Adicionar Post-it</button>
+                </div>
+
+                <div class="hub-card" data-cat="postits" onclick="inserirPostIt('pink'); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(251,207,232,0.3); color:#f472b6;"><i data-lucide="sticky-note"></i></div>
+                        <div>
+                            <div class="hub-card-title">Post-it Rosa Alerta</div>
+                            <div class="hub-card-desc">Destaque imediato para prazos urgentes, datas de entrega e revisões críticas.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#831843; color:#f472b6;">Urgente</span>
+                    <button class="hub-card-btn">Adicionar Post-it</button>
+                </div>
+
+                <!-- Papéis & Fundos -->
+                <div class="hub-card" data-cat="papeis" onclick="aplicarPapelLisa(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(255,255,255,0.15); color:#ffffff;"><i data-lucide="square"></i></div>
+                        <div>
+                            <div class="hub-card-title">Folha Lisa (Predefinida)</div>
+                            <div class="hub-card-desc">Superfície totalmente branca e limpa sem grelhas, ideal para escrita livre e esquemas.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#1e293b; color:#ffffff;">Padrão</span>
+                    <button class="hub-card-btn">Definir Lisa</button>
+                </div>
+
+                <div class="hub-card" data-cat="papeis" onclick="aplicarPapelMilimetrico(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(249,115,22,0.2); color:#fb923c;"><i data-lucide="grid"></i></div>
+                        <div>
+                            <div class="hub-card-title">Papel Milimétrico (Engenharia)</div>
+                            <div class="hub-card-desc">Malha técnica milimétrica alaranjada com subdivisões de precisão para gráficos e curvas.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#7c2d12; color:#fdba74;">Precisão</span>
+                    <button class="hub-card-btn">Aplicar Fundo</button>
+                </div>
+
+                <div class="hub-card" data-cat="papeis" onclick="aplicarPapelQuadriculado(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(59,130,246,0.2); color:#60a5fa;"><i data-lucide="hash"></i></div>
+                        <div>
+                            <div class="hub-card-title">Folha Quadriculada (5mm)</div>
+                            <div class="hub-card-desc">Grelha clássica matemática de 5mm para alinhamento geométrico de circuitos e contas.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#1e3a8a; color:#93c5fd;">Matemática</span>
+                    <button class="hub-card-btn">Aplicar Fundo</button>
+                </div>
+
+                <div class="hub-card" data-cat="papeis" onclick="aplicarPapelPautado(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(168,85,247,0.2); color:#c084fc;"><i data-lucide="align-justify"></i></div>
+                        <div>
+                            <div class="hub-card-title">Folha Pautada com Margem</div>
+                            <div class="hub-card-desc">Linhas horizontais suaves com traço vertical de margem para redações e apontamentos.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#581c87; color:#d8b4fe;">Caderno</span>
+                    <button class="hub-card-btn">Aplicar Fundo</button>
+                </div>
+
+                <!-- Novo Caderno -->
+                <div class="hub-card" data-cat="cadernos" onclick="abrirModalNovoCaderno(); fecharModalCentralCriar();">
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon" style="background:rgba(14,165,233,0.25); color:#38bdf8;"><i data-lucide="book-plus"></i></div>
+                        <div>
+                            <div class="hub-card-title">Novo Caderno Personalizado</div>
+                            <div class="hub-card-desc">Crie um caderno dedicado para qualquer disciplina, com número customizado de folhas e separadores.</div>
+                        </div>
+                    </div>
+                    <span class="hub-card-badge" style="background:#0369a1; color:#e0f2fe;">Estrutura</span>
+                    <button class="hub-card-btn">Criar Caderno</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Item 3: VISUALIZADOR DEDICADO DE HORÁRIO COM IMPRESSÃO (Sem Folha A4) -->
+    <div id="modalVisualizadorHorario" class="horario-fullscreen-modal" style="display:none;">
+        <div class="horario-fullscreen-header">
+            <div class="horario-title-area">
+                <span class="horario-badge">HORÁRIO DEDICADO</span>
+                <input type="text" id="horarioTituloInput" class="horario-main-title" value="Horário Semanal de Aulas & Laboratório">
+            </div>
+            <div class="horario-header-actions">
+                <select id="horarioEstiloSelect" class="horario-style-picker" onchange="mudarEstiloHorario(this.value)">
+                    <option value="modern-blue">🎨 Azul Executivo / Académico</option>
+                    <option value="emerald">🌿 Verde Esmeralda / Técnico</option>
+                    <option value="sunset">🌅 Gradiente Sunset / Dinâmico</option>
+                    <option value="minimal-dark">🖤 Minimalista Dark</option>
+                    <option value="clean-print">📄 Branco Clássico (Económico)</option>
+                </select>
+                <button class="btn-horario-action btn-horario-print" onclick="imprimirHorarioDedicado()"><i data-lucide="printer"></i> Imprimir</button>
+                <button class="btn-horario-action" onclick="inserirHorarioDedicadoNaNota()"><i data-lucide="file-plus"></i> Colocar na Folha A4</button>
+                <button class="btn-horario-action btn-horario-close" onclick="fecharVisualizadorHorario()">✕ Voltar às Notas</button>
+            </div>
+        </div>
+        <div class="horario-fullscreen-body theme-modern-blue" id="horarioFullscreenContainer">
+            <div class="horario-sheet-container">
+                <div class="horario-sheet-header">
+                    <div>
+                        <div class="horario-school-name" contenteditable="true">INSTITUTO SUPERIOR DE ENGENHARIA / ESCOLA SECUNDÁRIA</div>
+                        <div style="font-size:12px; color:#64748b; margin-top:4px;" contenteditable="true">Ano Letivo 2026/2027 • Curso Técnico de Eletrónica, Redes e Telecomunicações</div>
+                    </div>
+                    <div class="horario-meta-info" contenteditable="true">
+                        <div><strong>Turma:</strong> 12º A / T1</div>
+                        <div><strong>Diretor de Turma:</strong> Prof. Silva</div>
+                    </div>
+                </div>
+                <table class="horario-grid-table">
+                    <thead>
+                        <tr>
+                            <th style="width:105px;">Horário</th>
+                            <th>Segunda-feira</th>
+                            <th>Terça-feira</th>
+                            <th>Quarta-feira</th>
+                            <th>Quinta-feira</th>
+                            <th>Sexta-feira</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="horario-slot-time">08:30 - 09:30</td>
+                            <td contenteditable="true"><strong>Eletrotecnia</strong><br><span style="font-size:11px; color:#64748b;">Sala 102</span></td>
+                            <td contenteditable="true"><strong>Matemática A</strong><br><span style="font-size:11px; color:#64748b;">Sala 204</span></td>
+                            <td contenteditable="true"><strong>Laboratório Circuitos</strong><br><span style="font-size:11px; color:#64748b;">Lab 3</span></td>
+                            <td contenteditable="true"><strong>Física</strong><br><span style="font-size:11px; color:#64748b;">Sala 105</span></td>
+                            <td contenteditable="true"><strong>Sistemas Digitais</strong><br><span style="font-size:11px; color:#64748b;">Lab Info 1</span></td>
+                        </tr>
+                        <tr>
+                            <td class="horario-slot-time">09:35 - 10:35</td>
+                            <td contenteditable="true"><strong>Eletrotecnia</strong><br><span style="font-size:11px; color:#64748b;">Sala 102</span></td>
+                            <td contenteditable="true"><strong>Matemática A</strong><br><span style="font-size:11px; color:#64748b;">Sala 204</span></td>
+                            <td contenteditable="true"><strong>Laboratório Circuitos</strong><br><span style="font-size:11px; color:#64748b;">Lab 3</span></td>
+                            <td contenteditable="true"><strong>Física</strong><br><span style="font-size:11px; color:#64748b;">Sala 105</span></td>
+                            <td contenteditable="true"><strong>Sistemas Digitais</strong><br><span style="font-size:11px; color:#64748b;">Lab Info 1</span></td>
+                        </tr>
+                        <tr>
+                            <td class="horario-slot-time" style="background:#f1f5f9; font-size:11px; color:#94a3b8;">10:35 - 10:50</td>
+                            <td colspan="5" style="background:#f8fafc; font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Intervalo da Manhã</td>
+                        </tr>
+                        <tr>
+                            <td class="horario-slot-time">10:50 - 11:50</td>
+                            <td contenteditable="true"><strong>Análise Circuitos</strong><br><span style="font-size:11px; color:#64748b;">Sala 102</span></td>
+                            <td contenteditable="true"><strong>Português</strong><br><span style="font-size:11px; color:#64748b;">Sala 108</span></td>
+                            <td contenteditable="true"><strong>Eletrónica Fundamental</strong><br><span style="font-size:11px; color:#64748b;">Lab 2</span></td>
+                            <td contenteditable="true"><strong>Química Aplicada</strong><br><span style="font-size:11px; color:#64748b;">Sala 201</span></td>
+                            <td contenteditable="true"><strong>Programação C/C++</strong><br><span style="font-size:11px; color:#64748b;">Lab Info 2</span></td>
+                        </tr>
+                        <tr>
+                            <td class="horario-slot-time">11:55 - 12:55</td>
+                            <td contenteditable="true"><strong>Análise Circuitos</strong><br><span style="font-size:11px; color:#64748b;">Sala 102</span></td>
+                            <td contenteditable="true"><strong>Inglês Técnico</strong><br><span style="font-size:11px; color:#64748b;">Sala 108</span></td>
+                            <td contenteditable="true"><strong>Eletrónica Fundamental</strong><br><span style="font-size:11px; color:#64748b;">Lab 2</span></td>
+                            <td contenteditable="true"><strong>Filosofia</strong><br><span style="font-size:11px; color:#64748b;">Sala 201</span></td>
+                            <td contenteditable="true"><strong>Programação C/C++</strong><br><span style="font-size:11px; color:#64748b;">Lab Info 2</span></td>
+                        </tr>
+                        <tr>
+                            <td class="horario-slot-time" style="background:#e2e8f0; font-size:11px; color:#64748b;">13:00 - 14:00</td>
+                            <td colspan="5" style="background:#f1f5f9; font-size:12px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:1px;">Almoço / Pausa Pedagógica</td>
+                        </tr>
+                        <tr>
+                            <td class="horario-slot-time">14:00 - 15:30</td>
+                            <td contenteditable="true"><strong>Oficina Eletrotécnica</strong><br><span style="font-size:11px; color:#64748b;">Oficina 1</span></td>
+                            <td contenteditable="true"><strong>Estudo Acompanhado</strong><br><span style="font-size:11px; color:#64748b;">Biblioteca</span></td>
+                            <td contenteditable="true"><strong>Projeto Integrado</strong><br><span style="font-size:11px; color:#64748b;">Sala Projetos</span></td>
+                            <td contenteditable="true"><strong>Educação Física</strong><br><span style="font-size:11px; color:#64748b;">Pavilhão</span></td>
+                            <td contenteditable="true"><strong>Apoio ao Aluno</strong><br><span style="font-size:11px; color:#64748b;">Sala 101</span></td>
+                        </tr>
+                        <tr>
+                            <td class="horario-slot-time">15:45 - 17:15</td>
+                            <td contenteditable="true"><strong>Oficina Eletrotécnica</strong><br><span style="font-size:11px; color:#64748b;">Oficina 1</span></td>
+                            <td contenteditable="true"><strong>Sessão de Dúvidas</strong><br><span style="font-size:11px; color:#64748b;">Biblioteca</span></td>
+                            <td contenteditable="true"><strong>Projeto Integrado</strong><br><span style="font-size:11px; color:#64748b;">Sala Projetos</span></td>
+                            <td contenteditable="true"><strong>TIC & Simulação</strong><br><span style="font-size:11px; color:#64748b;">Lab 1</span></td>
+                            <td contenteditable="true"><strong>Revisão Semanal</strong><br><span style="font-size:11px; color:#64748b;">Livre</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Script Principal com Cache Buster -->
-    <script src="app.js?v=5.2"></script>
+    <script src="app.js?v=5.3"></script>
 </body>
 </html>
