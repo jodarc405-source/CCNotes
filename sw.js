@@ -1,9 +1,9 @@
-const CACHE_NAME = 'ccnotes-chromebook-v5';
+const CACHE_NAME = 'ccnotes-chromebook-v5.1';
 const ASSETS = [
   './',
   'index.html',
-  'style.css?v=5.0',
-  'app.js?v=5.0',
+  'style.css?v=5.1',
+  'app.js?v=5.1',
   'manifest.json',
   'icon.svg',
   'icon-192.png',

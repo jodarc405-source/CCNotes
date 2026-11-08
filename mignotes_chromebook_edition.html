@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.0">
+    <link rel="stylesheet" href="style.css?v=5.1">
 </head>
 <body>
     <header>
@@ -142,6 +142,10 @@
                             <div class="color-swatch" style="background:#9333ea" onclick="selectSwatch(this, '#9333ea')"></div>
                             <input type="color" id="pen-color-picker" value="#000000" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
                         </div>
+                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão estilo Squid">
+                            <input type="checkbox" class="chk-pressure-input" onchange="setPressureSensitivity(this.checked)" checked>
+                            <span>Sensibilidade à Pressão</span>
+                        </label>
                     </div>
                 </div>
 
@@ -166,6 +170,10 @@
                             <div class="color-swatch" style="background:#dc2626" onclick="selectSwatch(this, '#dc2626')"></div>
                             <input type="color" id="pencil-color-picker" value="#475569" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
                         </div>
+                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão estilo Squid">
+                            <input type="checkbox" class="chk-pressure-input" onchange="setPressureSensitivity(this.checked)" checked>
+                            <span>Sensibilidade à Pressão</span>
+                        </label>
                     </div>
                 </div>
 
@@ -191,6 +199,10 @@
                             <div class="color-swatch" style="background:#c084fc" onclick="selectSwatch(this, '#c084fc')"></div>
                             <input type="color" id="high-color-picker" value="#facc15" onchange="setColor(this.value)" style="border:none; background:transparent; width:22px; height:22px; cursor:pointer;" title="Cor Personalizada">
                         </div>
+                        <label class="pressure-checkbox-wrap" title="Sensibilidade à pressão estilo Squid">
+                            <input type="checkbox" class="chk-pressure-input" onchange="setPressureSensitivity(this.checked)" checked>
+                            <span>Sensibilidade à Pressão</span>
+                        </label>
                     </div>
                 </div>
 
@@ -198,6 +210,102 @@
                 <button class="tool-btn" id="btn-text" onclick="setTool('text')" title="Inserir Caixa de Texto (Clique na folha onde quer inserir)">
                     <i data-lucide="type"></i>
                 </button>
+
+                <!-- Ferramenta de Títulos & Cabeçalhos com Dropdown (Ponto 4) -->
+                <div class="tool-group">
+                    <button class="tool-btn" id="btn-title-tool" onclick="toggleDropdown('title-dropdown')" title="Títulos & Cabeçalhos (Escolher Letra, Fundo, Borda)">
+                        <i data-lucide="heading"></i>
+                        <span class="tool-arrow">▼</span>
+                    </button>
+                    <div id="title-dropdown" class="dropdown-menu prop-panel title-prop-panel" style="min-width: 290px;">
+                        <div class="prop-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>TÍTULOS & CABEÇALHOS</span>
+                            <span style="font-size:10px; color:#94a3b8;">Estilo Word</span>
+                        </div>
+                        
+                        <div class="prop-subtitle">Tipo de Letra</div>
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
+                            <select id="title-font-family" class="title-select" onchange="atualizarPreviewTitulo()" style="flex:2;">
+                                <option value="'Segoe UI', system-ui, sans-serif">Sans-Serif Moderna</option>
+                                <option value="Georgia, 'Times New Roman', serif">Serifada Elegante</option>
+                                <option value="'Caveat', 'Comic Sans MS', cursive, sans-serif">Manuscrita / Escolar</option>
+                                <option value="'Consolas', 'Courier New', monospace">Monoespaçada / Código</option>
+                                <option value="'Impact', 'Arial Black', sans-serif">Destaque Forte</option>
+                            </select>
+                            <select id="title-font-size" class="title-select" onchange="atualizarPreviewTitulo()" style="flex:1;">
+                                <option value="18px">18px</option>
+                                <option value="22px">22px</option>
+                                <option value="26px" selected>26px</option>
+                                <option value="32px">32px</option>
+                                <option value="40px">40px</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                            <span style="font-size:11px; color:#cbd5e1;">Cor da Letra:</span>
+                            <div class="title-color-row">
+                                <div class="title-color-swatch active" style="background:#0f172a;" onclick="setTitleTextColor(this, '#0f172a')"></div>
+                                <div class="title-color-swatch" style="background:#1d4ed8;" onclick="setTitleTextColor(this, '#1d4ed8')"></div>
+                                <div class="title-color-swatch" style="background:#dc2626;" onclick="setTitleTextColor(this, '#dc2626')"></div>
+                                <div class="title-color-swatch" style="background:#15803d;" onclick="setTitleTextColor(this, '#15803d')"></div>
+                                <div class="title-color-swatch" style="background:#9333ea;" onclick="setTitleTextColor(this, '#9333ea')"></div>
+                                <div class="title-color-swatch" style="background:#ffffff; border:1px solid #cbd5e1;" onclick="setTitleTextColor(this, '#ffffff')"></div>
+                                <input type="color" id="title-text-color-picker" value="#0f172a" onchange="setTitleTextColor(null, this.value)" style="width:20px; height:20px; border:none; cursor:pointer;" title="Cor Personalizada da Letra">
+                            </div>
+                        </div>
+
+                        <div class="prop-subtitle">Cor de Fundo</div>
+                        <div class="title-color-row" style="margin-bottom:10px;">
+                            <div class="title-bg-swatch active" style="background:transparent; border:1px dashed #64748b;" onclick="setTitleBgColor(this, 'transparent')" title="Transparente">✕</div>
+                            <div class="title-bg-swatch" style="background:#fef08a;" onclick="setTitleBgColor(this, '#fef08a')" title="Amarelo Claro"></div>
+                            <div class="title-bg-swatch" style="background:#dbeafe;" onclick="setTitleBgColor(this, '#dbeafe')" title="Azul Suave"></div>
+                            <div class="title-bg-swatch" style="background:#dcfce7;" onclick="setTitleBgColor(this, '#dcfce7')" title="Verde Suave"></div>
+                            <div class="title-bg-swatch" style="background:#fce7f3;" onclick="setTitleBgColor(this, '#fce7f3')" title="Rosa Suave"></div>
+                            <div class="title-bg-swatch" style="background:#f3e8ff;" onclick="setTitleBgColor(this, '#f3e8ff')" title="Roxo Suave"></div>
+                            <div class="title-bg-swatch" style="background:#1e293b;" onclick="setTitleBgColor(this, '#1e293b')" title="Escuro Profissional"></div>
+                            <input type="color" id="title-bg-color-picker" value="#dbeafe" onchange="setTitleBgColor(null, this.value)" style="width:20px; height:20px; border:none; cursor:pointer;" title="Cor Personalizada de Fundo">
+                        </div>
+
+                        <div class="prop-subtitle">Borda & Moldura</div>
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
+                            <select id="title-border-style" class="title-select" onchange="atualizarPreviewTitulo()" style="flex:1;">
+                                <option value="none">Sem Borda</option>
+                                <option value="solid 1px">Sólida Fina (1px)</option>
+                                <option value="solid 2px" selected>Sólida Marcada (2px)</option>
+                                <option value="solid 4px">Sólida Grossa (4px)</option>
+                                <option value="dashed 2px">Tracejada</option>
+                                <option value="left-bar 6px">Faixa Lateral Esquerda</option>
+                                <option value="bottom-bar 3px">Linha Inferior Sublinhada</option>
+                            </select>
+                            <select id="title-border-radius" class="title-select" onchange="atualizarPreviewTitulo()" style="width:95px;">
+                                <option value="4px">Reto (4px)</option>
+                                <option value="8px" selected>Suave (8px)</option>
+                                <option value="16px">Redondo (16px)</option>
+                                <option value="0px">Nenhum (0px)</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                            <span style="font-size:11px; color:#cbd5e1;">Cor da Borda:</span>
+                            <div class="title-color-row">
+                                <div class="title-border-color-swatch active" style="background:#3b82f6;" onclick="setTitleBorderColor(this, '#3b82f6')"></div>
+                                <div class="title-border-color-swatch" style="background:#0f172a;" onclick="setTitleBorderColor(this, '#0f172a')"></div>
+                                <div class="title-border-color-swatch" style="background:#ef4444;" onclick="setTitleBorderColor(this, '#ef4444')"></div>
+                                <div class="title-border-color-swatch" style="background:#10b981;" onclick="setTitleBorderColor(this, '#10b981')"></div>
+                                <div class="title-border-color-swatch" style="background:#8b5cf6;" onclick="setTitleBorderColor(this, '#8b5cf6')"></div>
+                                <div class="title-border-color-swatch" style="background:#f59e0b;" onclick="setTitleBorderColor(this, '#f59e0b')"></div>
+                                <input type="color" id="title-border-color-picker" value="#3b82f6" onchange="setTitleBorderColor(null, this.value)" style="width:20px; height:20px; border:none; cursor:pointer;" title="Cor Personalizada da Borda">
+                            </div>
+                        </div>
+
+                        <div class="prop-subtitle">Pré-visualização</div>
+                        <div id="title-preview-box" class="title-preview-box">
+                            Exemplo de Título
+                        </div>
+
+                        <button class="btn-insert-title" onclick="inserirTituloNaFolha()">
+                            <i data-lucide="plus-circle" style="width:14px; height:14px;"></i> Inserir Título na Folha
+                        </button>
+                    </div>
+                </div>
 
                 <!-- Menu Dropdown: Formas Automáticas do Word & Linhas (Ponto 6) -->
                 <div class="tool-group">
@@ -291,6 +399,17 @@
 
                 <span id="quick-size-label" style="font-size:12px; color:#cbd5e1; min-width:24px;">3px</span>
                 <input type="range" id="quick-size-picker" min="1" max="25" value="3" oninput="setSize(this.value)" style="width:60px; cursor:pointer;" title="Espessura do Traço">
+
+                <div class="divider"></div>
+
+                <!-- Sistema de Pressão estilo Squid (Ponto 1) -->
+                <div class="pressure-toolbar-group" title="Ativar/Desativar Sistema de Pressão da Caneta (Estilo Squid)">
+                    <label class="pressure-pill-label">
+                        <input type="checkbox" id="chk-pressure-global" onchange="setPressureSensitivity(this.checked)" checked>
+                        <i data-lucide="activity" style="width:12px; height:12px;"></i>
+                        <span>Pressão</span>
+                    </label>
+                </div>
             </div>
 
             <!-- Folha A4 Fixa (794 x 1123 px rigorosos) -->
@@ -796,6 +915,6 @@
     </div>
 
     <!-- Script Principal com Cache Buster -->
-    <script src="app.js?v=5.0"></script>
+    <script src="app.js?v=5.1"></script>
 </body>
 </html>

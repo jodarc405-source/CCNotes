@@ -36,6 +36,21 @@ let eraserMode = 'stroke'; // 'stroke', 'ink_path', 'total'
 let currentColor = '#000000';
 let currentSize = 3;
 
+// Sistema de Pressão estilo Squid (Ponto 1)
+let isPressureEnabled = localStorage.getItem('mignotes_pressure_enabled') !== 'false';
+
+function setPressureSensitivity(enabled) {
+    isPressureEnabled = !!enabled;
+    try {
+        localStorage.setItem('mignotes_pressure_enabled', isPressureEnabled ? 'true' : 'false');
+    } catch(e) {}
+    const globalChk = document.getElementById('chk-pressure-global');
+    if (globalChk) globalChk.checked = isPressureEnabled;
+    document.querySelectorAll('.chk-pressure-input').forEach(chk => {
+        chk.checked = isPressureEnabled;
+    });
+}
+
 let isDrawing = false;
 let startX = 0, startY = 0;
 let lastCoord = null;
@@ -518,8 +533,75 @@ function renderShapeOnContext(ctx, s) {
 }
 
 // --------------------------------------------------------
-// Redesenho e Renderização de Traços e Formas
+// Motor de Traço Fluido Suave (Estilo Squid) & Redesenho
 // --------------------------------------------------------
+function renderSmoothFreeStroke(ctx, stroke) {
+    if (!stroke.segments || stroke.segments.length === 0) return;
+
+    ctx.save();
+    const isPencil = (stroke.tool === 'pencil');
+    const isHigh = stroke.isHighlighter || (stroke.tool === 'highlighter');
+
+    if (isHigh) {
+        ctx.globalAlpha = 0.42;
+        ctx.strokeStyle = stroke.color;
+        ctx.fillStyle = stroke.color;
+    } else if (isPencil) {
+        ctx.globalAlpha = 0.72;
+        ctx.strokeStyle = stroke.color;
+        ctx.fillStyle = stroke.color;
+    } else {
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = stroke.color;
+        ctx.fillStyle = stroke.color;
+    }
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let seg of stroke.segments) {
+        if (!seg || seg.length === 0) continue;
+        if (seg.length === 1) {
+            const p = seg[0];
+            const w = p.width || stroke.size;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, Math.max(0.5, w / 2), 0, Math.PI * 2);
+            ctx.fill();
+            continue;
+        }
+
+        if (seg.length === 2) {
+            const p0 = seg[0], p1 = seg[1];
+            ctx.lineWidth = ((p0.width || stroke.size) + (p1.width || stroke.size)) / 2;
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
+            continue;
+        }
+
+        // Interpolação Spline com Curvas Quadráticas de Ponto Médio (Squid)
+        ctx.beginPath();
+        ctx.moveTo(seg[0].x, seg[0].y);
+
+        for (let i = 1; i < seg.length - 1; i++) {
+            const curr = seg[i];
+            const next = seg[i + 1];
+            const midX = (curr.x + next.x) / 2;
+            const midY = (curr.y + next.y) / 2;
+            ctx.lineWidth = curr.width || stroke.size;
+            ctx.quadraticCurveTo(curr.x, curr.y, midX, midY);
+        }
+
+        const last = seg[seg.length - 1];
+        const prev = seg[seg.length - 2];
+        ctx.lineWidth = last.width || stroke.size;
+        ctx.quadraticCurveTo(prev.x, prev.y, last.x, last.y);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
 function redrawStrokes() {
     paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
     highlighterCtx.clearRect(0, 0, highlighterCanvas.width, highlighterCanvas.height);
@@ -527,27 +609,15 @@ function redrawStrokes() {
     for (let s of currentStrokes) {
         const targetCtx = s.isHighlighter ? highlighterCtx : paintCtx;
 
-        targetCtx.save();
-        targetCtx.strokeStyle = s.color;
-        targetCtx.fillStyle = s.color;
-        targetCtx.lineWidth = s.size;
-        targetCtx.lineCap = 'round';
-        targetCtx.lineJoin = 'round';
-
         if (s.type === 'free') {
-            if (s.segments && s.segments.length > 0) {
-                for (let seg of s.segments) {
-                    if (seg.length > 1) {
-                        targetCtx.beginPath();
-                        targetCtx.moveTo(seg[0].x, seg[0].y);
-                        for (let i = 1; i < seg.length; i++) {
-                            targetCtx.lineTo(seg[i].x, seg[i].y);
-                        }
-                        targetCtx.stroke();
-                    }
-                }
-            }
+            renderSmoothFreeStroke(targetCtx, s);
         } else if (s.type === 'shape') {
+            targetCtx.save();
+            targetCtx.strokeStyle = s.color;
+            targetCtx.fillStyle = s.color;
+            targetCtx.lineWidth = s.size;
+            targetCtx.lineCap = 'round';
+            targetCtx.lineJoin = 'round';
             renderShapeOnContext(targetCtx, s);
 
             // Indicador suave de seleção da forma
@@ -768,12 +838,28 @@ paintCanvas.addEventListener('pointerdown', (e) => {
 
     if (currentTool === 'pen' || currentTool === 'pencil' || currentTool === 'highlighter') {
         const isHigh = (currentTool === 'highlighter');
+        const isPencil = (currentTool === 'pencil');
+        let initialWidth = currentSize;
+
+        if (isHigh) {
+            initialWidth = Math.max(14, currentSize * 3.5);
+        } else if (isPencil) {
+            initialWidth = Math.max(0.8, currentSize * 0.75 * (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse' ? (0.45 + raw.pressure * 1.1) : 1));
+        } else {
+            if (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse') {
+                initialWidth = Math.max(1, currentSize * (0.35 + raw.pressure * 1.3));
+            } else {
+                initialWidth = currentSize;
+            }
+        }
+
         const stroke = {
             type: 'free',
-            color: isHigh ? currentColor + '45' : currentColor,
-            size: isHigh ? currentSize * 3 : (currentTool === 'pencil' ? Math.max(1, currentSize * 0.75) : currentSize * (0.8 + raw.pressure * 0.4)),
+            tool: currentTool,
+            color: currentColor,
+            size: currentSize,
             isHighlighter: isHigh,
-            segments: [[{ x: raw.x, y: raw.y }]]
+            segments: [[{ x: raw.x, y: raw.y, pressure: raw.pressure, width: initialWidth, time: Date.now() }]]
         };
         currentStrokes.push(stroke);
     }
@@ -824,19 +910,71 @@ paintCanvas.addEventListener('pointermove', (e) => {
         const activeStroke = currentStrokes[currentStrokes.length - 1];
         if (activeStroke && activeStroke.type === 'free') {
             const lastSeg = activeStroke.segments[activeStroke.segments.length - 1];
-            lastSeg.push(raw);
+            const prevPt = lastSeg[lastSeg.length - 1];
+            const isHigh = activeStroke.isHighlighter || (activeStroke.tool === 'highlighter');
+            const isPencil = (activeStroke.tool === 'pencil');
 
-            const targetCtx = activeStroke.isHighlighter ? highlighterCtx : paintCtx;
+            let ptWidth = activeStroke.size;
+            if (isHigh) {
+                ptWidth = Math.max(14, activeStroke.size * 3.5);
+            } else if (isPencil) {
+                if (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse') {
+                    ptWidth = Math.max(0.8, activeStroke.size * 0.75 * (0.45 + raw.pressure * 1.1));
+                } else {
+                    ptWidth = Math.max(0.8, activeStroke.size * 0.75);
+                }
+            } else {
+                // Caneta estilo Squid com suporte dinâmico a pressão e velocidade
+                if (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse') {
+                    ptWidth = Math.max(1, activeStroke.size * (0.35 + raw.pressure * 1.3));
+                } else {
+                    const dt = Math.max(1, Date.now() - (prevPt.time || Date.now()));
+                    const dist = Math.hypot(raw.x - prevPt.x, raw.y - prevPt.y);
+                    const speed = dist / dt;
+                    const speedFactor = Math.max(0.65, Math.min(1.25, 1.0 - (speed * 0.08)));
+                    ptWidth = Math.max(1, activeStroke.size * speedFactor);
+                }
+            }
+
+            const newPt = { x: raw.x, y: raw.y, pressure: raw.pressure, width: ptWidth, time: Date.now() };
+            lastSeg.push(newPt);
+
+            const targetCtx = isHigh ? highlighterCtx : paintCtx;
             targetCtx.save();
+            if (isHigh) targetCtx.globalAlpha = 0.42;
+            else if (isPencil) targetCtx.globalAlpha = 0.72;
+            else targetCtx.globalAlpha = 1.0;
+
             targetCtx.strokeStyle = activeStroke.color;
-            targetCtx.lineWidth = activeStroke.size;
+            targetCtx.fillStyle = activeStroke.color;
             targetCtx.lineCap = 'round';
             targetCtx.lineJoin = 'round';
-            targetCtx.beginPath();
+
             const len = lastSeg.length;
-            targetCtx.moveTo(lastSeg[len - 2].x, lastSeg[len - 2].y);
-            targetCtx.lineTo(raw.x, raw.y);
-            targetCtx.stroke();
+            if (len === 2) {
+                const p0 = lastSeg[0], p1 = lastSeg[1];
+                targetCtx.lineWidth = (p0.width + p1.width) / 2;
+                targetCtx.beginPath();
+                targetCtx.moveTo(p0.x, p0.y);
+                targetCtx.lineTo(p1.x, p1.y);
+                targetCtx.stroke();
+            } else if (len >= 3) {
+                // Curva quadrática com ponto médio (Midpoint Quadratic Bezier - Squid)
+                const pPrev2 = lastSeg[len - 3];
+                const pPrev = lastSeg[len - 2];
+                const pCurr = lastSeg[len - 1];
+
+                const mid1X = (pPrev2.x + pPrev.x) / 2;
+                const mid1Y = (pPrev2.y + pPrev.y) / 2;
+                const mid2X = (pPrev.x + pCurr.x) / 2;
+                const mid2Y = (pPrev.y + pCurr.y) / 2;
+
+                targetCtx.lineWidth = pPrev.width;
+                targetCtx.beginPath();
+                targetCtx.moveTo(mid1X, mid1Y);
+                targetCtx.quadraticCurveTo(pPrev.x, pPrev.y, mid2X, mid2Y);
+                targetCtx.stroke();
+            }
             targetCtx.restore();
         }
         return;
@@ -996,6 +1134,40 @@ window.addEventListener('pointerup', (e) => {
         redrawStrokes();
         salvarNoLocalStorage();
     } else {
+        if (currentTool === 'pen' || currentTool === 'pencil' || currentTool === 'highlighter') {
+            const activeStroke = currentStrokes[currentStrokes.length - 1];
+            if (activeStroke && activeStroke.type === 'free' && activeStroke.segments) {
+                const lastSeg = activeStroke.segments[activeStroke.segments.length - 1];
+                if (lastSeg && lastSeg.length === 1) {
+                    const targetCtx = activeStroke.isHighlighter ? highlighterCtx : paintCtx;
+                    targetCtx.save();
+                    if (activeStroke.isHighlighter) targetCtx.globalAlpha = 0.42;
+                    else if (activeStroke.tool === 'pencil') targetCtx.globalAlpha = 0.72;
+                    targetCtx.fillStyle = activeStroke.color;
+                    targetCtx.beginPath();
+                    targetCtx.arc(lastSeg[0].x, lastSeg[0].y, Math.max(0.5, (lastSeg[0].width || activeStroke.size) / 2), 0, Math.PI * 2);
+                    targetCtx.fill();
+                    targetCtx.restore();
+                } else if (lastSeg && lastSeg.length >= 3) {
+                    const pPrev = lastSeg[lastSeg.length - 2];
+                    const pLast = lastSeg[lastSeg.length - 1];
+                    const midX = (pPrev.x + pLast.x) / 2;
+                    const midY = (pPrev.y + pLast.y) / 2;
+                    const targetCtx = activeStroke.isHighlighter ? highlighterCtx : paintCtx;
+                    targetCtx.save();
+                    if (activeStroke.isHighlighter) targetCtx.globalAlpha = 0.42;
+                    else if (activeStroke.tool === 'pencil') targetCtx.globalAlpha = 0.72;
+                    targetCtx.strokeStyle = activeStroke.color;
+                    targetCtx.lineWidth = pLast.width || activeStroke.size;
+                    targetCtx.lineCap = 'round';
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(midX, midY);
+                    targetCtx.lineTo(pLast.x, pLast.y);
+                    targetCtx.stroke();
+                    targetCtx.restore();
+                }
+            }
+        }
         salvarNoLocalStorage();
     }
 });
@@ -1548,9 +1720,9 @@ function deleteTextBlock(btn) {
 }
 
 // --------------------------------------------------------
-// Blocos de Circuito na Folha A4 (Ponto 2 & 4: Sem bordas, sem pontos azuis, editável)
+// Blocos de Circuito na Folha A4 (Caixa Compacta & Escrita Integrada)
 // --------------------------------------------------------
-function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1, rotation = 0, circuitData = null) {
+function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1, rotation = 0, circuitData = null, caption = '') {
     const div = document.createElement('div');
     div.className = 'circuit-placed-block';
     div.style.left = left + 'px';
@@ -1559,11 +1731,33 @@ function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1,
     div.dataset.rotation = String(rotation);
     div.dataset.svgRaw = svgContent;
     div.dataset.circuitData = JSON.stringify(circuitData || ccState);
+    div.dataset.caption = caption || '';
 
     const wrap = document.createElement('div');
     wrap.className = 'circuit-inner-svg';
     wrap.innerHTML = svgContent;
     div.appendChild(wrap);
+
+    // Caixa para anotação/legenda diretamente na caixa do circuito (Ponto 3)
+    const captionBox = document.createElement('div');
+    captionBox.className = 'circuit-caption-box';
+    captionBox.contentEditable = 'true';
+    captionBox.spellcheck = true;
+    captionBox.setAttribute('placeholder', 'Escrever anotação / legenda...');
+    captionBox.innerHTML = caption || '';
+    captionBox.addEventListener('input', () => {
+        div.dataset.caption = captionBox.innerHTML;
+        salvarNoLocalStorage();
+    });
+    captionBox.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+    });
+    div.appendChild(captionBox);
+
+    div.addEventListener('dblclick', (e) => {
+        captionBox.focus();
+        e.stopPropagation();
+    });
 
     const controls = document.createElement('div');
     controls.className = 'circuit-controls-overlay';
@@ -1590,14 +1784,14 @@ function criarBlocoCircuitoNaFolha(svgContent, left = 200, top = 200, scale = 1,
 
     let isDragging = false, ox = 0, oy = 0;
     div.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.ctrl-btn') || e.target.classList.contains('resize-handle')) return;
+        if (e.target.closest('.ctrl-btn') || e.target.classList.contains('resize-handle') || e.target.classList.contains('circuit-caption-box')) return;
         if (currentTool === 'eraser') {
             div.remove();
             salvarNoLocalStorage();
             return;
         }
 
-        document.querySelectorAll('.text-block, .circuit-placed-block').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
         selectedShapeStroke = null;
         redrawStrokes();
 
@@ -1755,7 +1949,7 @@ function cadernoRestaurarSnapshot(jsonStr) {
     const pIdx = tabData.currentPage || 0;
     tabData.pages[pIdx] = pageData;
 
-    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.remove());
+    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.remove());
 
     templateIdx = pageData.templateIdx ?? 0;
     currentStrokes = JSON.parse(JSON.stringify(pageData.strokes || []));
@@ -1765,9 +1959,10 @@ function cadernoRestaurarSnapshot(jsonStr) {
     });
 
     (pageData.circuits || []).forEach(c => {
-        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData);
+        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData, c.caption || '');
     });
 
+    (pageData.titles || []).forEach(t => restaurarTituloBlock(t));
     (pageData.postits || []).forEach(p => restaurarPostIt(p));
     (pageData.markers || []).forEach(m => restaurarMarcadorPagina(m));
     (pageData.labels || []).forEach(l => restaurarEtiquetaCard(l));
@@ -1779,7 +1974,7 @@ function cadernoRestaurarSnapshot(jsonStr) {
 }
 
 function cadernoCopiar() {
-    const selBlock = document.querySelector('.text-block.selected, .circuit-placed-block.selected, .placed-postit.selected, .placed-page-marker.selected, .placed-label-card.selected, .placed-template-block.selected');
+    const selBlock = document.querySelector('.text-block.selected, .circuit-placed-block.selected, .placed-title-block.selected, .placed-postit.selected, .placed-page-marker.selected, .placed-label-card.selected, .placed-template-block.selected');
     if (selBlock) {
         if (selBlock.classList.contains('text-block')) {
             cadernoClipboard = {
@@ -1796,7 +1991,17 @@ function cadernoCopiar() {
                 svg: selBlock.dataset.svgRaw || '',
                 scale: parseFloat(selBlock.dataset.scale) || 1,
                 rotation: parseInt(selBlock.dataset.rotation) || 0,
-                circuitData: cData
+                circuitData: cData,
+                caption: selBlock.dataset.caption || ''
+            };
+        } else if (selBlock.classList.contains('placed-title-block')) {
+            const cnt = selBlock.querySelector('.title-content');
+            let cfg = null;
+            try { if (selBlock.dataset.titleConfig) cfg = JSON.parse(selBlock.dataset.titleConfig); } catch(e){}
+            cadernoClipboard = {
+                type: 'title',
+                html: cnt ? cnt.innerHTML : 'Título',
+                config: cfg
             };
         } else if (selBlock.classList.contains('placed-postit')) {
             const content = selBlock.querySelector('.postit-content');
@@ -1842,7 +2047,7 @@ function cadernoCopiar() {
 function cadernoCortar() {
     cadernoCopiar();
     cadernoSalvarHistorico();
-    const selBlock = document.querySelector('.text-block.selected, .circuit-placed-block.selected, .placed-postit.selected, .placed-page-marker.selected, .placed-label-card.selected, .placed-template-block.selected');
+    const selBlock = document.querySelector('.text-block.selected, .circuit-placed-block.selected, .placed-title-block.selected, .placed-postit.selected, .placed-page-marker.selected, .placed-label-card.selected, .placed-template-block.selected');
     if (selBlock) {
         selBlock.remove();
         salvarNoLocalStorage();
@@ -1862,7 +2067,9 @@ function cadernoColar() {
     if (cadernoClipboard.type === 'text') {
         criarBlocoTexto(cadernoClipboard.text, 100 + offset, 150 + offset, cadernoClipboard.fontSize, cadernoClipboard.rotation);
     } else if (cadernoClipboard.type === 'circuit') {
-        criarBlocoCircuitoNaFolha(cadernoClipboard.svg, 100 + offset, 150 + offset, cadernoClipboard.scale, cadernoClipboard.rotation, cadernoClipboard.circuitData);
+        criarBlocoCircuitoNaFolha(cadernoClipboard.svg, 100 + offset, 150 + offset, cadernoClipboard.scale, cadernoClipboard.rotation, cadernoClipboard.circuitData, cadernoClipboard.caption);
+    } else if (cadernoClipboard.type === 'title') {
+        restaurarTituloBlock({ left: 100 + offset, top: 100 + offset, html: cadernoClipboard.html, config: cadernoClipboard.config });
     } else if (cadernoClipboard.type === 'postit') {
         const p = inserirPostIt(cadernoClipboard.color, 'Post-it', 120 + offset, 160 + offset);
         if (p) {
@@ -1986,6 +2193,52 @@ function ccColar() {
 // --------------------------------------------------------
 // Post-its, Marcadores de Página e Etiquetas Escolares/Trabalho
 // --------------------------------------------------------
+const POSTIT_COLORS = {
+    'yellow': { bg: '#fef08a', border: '#facc15', text: '#713f12', name: 'Amarelo', key: 'yellow' },
+    '#fef08a': { bg: '#fef08a', border: '#facc15', text: '#713f12', name: 'Amarelo', key: 'yellow' },
+    'pink': { bg: '#fbcfe8', border: '#f472b6', text: '#831843', name: 'Rosa Pastel', key: 'pink' },
+    '#fbcfe8': { bg: '#fbcfe8', border: '#f472b6', text: '#831843', name: 'Rosa Pastel', key: 'pink' },
+    'green': { bg: '#bbf7d0', border: '#4ade80', text: '#14532d', name: 'Verde Pastel', key: 'green' },
+    '#bbf7d0': { bg: '#bbf7d0', border: '#4ade80', text: '#14532d', name: 'Verde Pastel', key: 'green' },
+    'blue': { bg: '#bae6fd', border: '#38bdf8', text: '#0c4a6e', name: 'Azul Celeste', key: 'blue' },
+    '#bfdbfe': { bg: '#bfdbfe', border: '#60a5fa', text: '#1e40af', name: 'Azul Celeste', key: 'blue' },
+    '#bae6fd': { bg: '#bae6fd', border: '#38bdf8', text: '#0c4a6e', name: 'Azul Celeste', key: 'blue' },
+    'orange': { bg: '#fed7aa', border: '#fb923c', text: '#7c2d12', name: 'Laranja Salmão', key: 'orange' },
+    '#fed7aa': { bg: '#fed7aa', border: '#fb923c', text: '#7c2d12', name: 'Laranja Salmão', key: 'orange' }
+};
+
+function getPostItConfig(cor) {
+    if (POSTIT_COLORS[cor]) return POSTIT_COLORS[cor];
+    if (typeof cor === 'string' && (cor.startsWith('#') || cor.startsWith('rgb'))) {
+        return { bg: cor, border: cor, text: '#0f172a', name: 'Post-it', key: 'custom' };
+    }
+    return POSTIT_COLORS['yellow'];
+}
+
+const MARKER_COLORS = {
+    'urgente': { bg: '#ef4444', border: '#b91c1c', text: '#ffffff', key: 'urgente' },
+    '#ef4444': { bg: '#ef4444', border: '#b91c1c', text: '#ffffff', key: 'urgente' },
+    'importante': { bg: '#eab308', border: '#a16207', text: '#ffffff', key: 'importante' },
+    '#eab308': { bg: '#eab308', border: '#a16207', text: '#ffffff', key: 'importante' },
+    'formula': { bg: '#16a34a', border: '#15803d', text: '#ffffff', key: 'formula' },
+    '#22c55e': { bg: '#16a34a', border: '#15803d', text: '#ffffff', key: 'formula' },
+    '#2563eb': { bg: '#2563eb', border: '#1d4ed8', text: '#ffffff', key: 'formula' },
+    'duvida': { bg: '#2563eb', border: '#1d4ed8', text: '#ffffff', key: 'duvida' },
+    '#3b82f6': { bg: '#2563eb', border: '#1d4ed8', text: '#ffffff', key: 'duvida' },
+    '#ea580c': { bg: '#ea580c', border: '#c2410c', text: '#ffffff', key: 'duvida' },
+    'tarefa': { bg: '#9333ea', border: '#7e22ce', text: '#ffffff', key: 'tarefa' },
+    '#a855f7': { bg: '#9333ea', border: '#7e22ce', text: '#ffffff', key: 'tarefa' },
+    '#059669': { bg: '#059669', border: '#047857', text: '#ffffff', key: 'tarefa' }
+};
+
+function getMarkerConfig(cor) {
+    if (MARKER_COLORS[cor]) return MARKER_COLORS[cor];
+    if (typeof cor === 'string' && (cor.startsWith('#') || cor.startsWith('rgb'))) {
+        return { bg: cor, border: cor, text: '#ffffff', key: 'custom' };
+    }
+    return MARKER_COLORS['urgente'];
+}
+
 function togglePostItModal() {
     const modal = document.getElementById('postItModal');
     if (modal) modal.classList.toggle('active');
@@ -1993,15 +2246,19 @@ function togglePostItModal() {
 
 function inserirPostIt(cor = 'yellow', nomeCor = 'Post-it Amarelo', left = 120, top = 160) {
     cadernoSalvarHistorico();
+    const cfg = getPostItConfig(cor);
     const div = document.createElement('div');
-    div.className = `placed-postit postit-${cor}`;
+    div.className = `placed-postit postit-${cfg.key}`;
     div.dataset.color = cor;
     div.style.left = left + 'px';
     div.style.top = top + 'px';
+    div.style.backgroundColor = cfg.bg;
+    div.style.borderTop = `14px solid ${cfg.border}`;
+    div.style.color = cfg.text;
 
     div.innerHTML = `
         <div class="postit-bar">
-            <span class="postit-title">📌 ${nomeCor}</span>
+            <span class="postit-title">📌 ${nomeCor || cfg.name}</span>
             <button class="postit-btn-del" onclick="this.closest('.placed-postit').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Apagar Post-it">✕</button>
         </div>
         <div class="postit-content" contenteditable="true" spellcheck="true" placeholder="Escrever nota...">Nota rápida...</div>
@@ -2014,17 +2271,21 @@ function inserirPostIt(cor = 'yellow', nomeCor = 'Post-it Amarelo', left = 120, 
 }
 
 function restaurarPostIt(p) {
+    const cfg = getPostItConfig(p.color || 'yellow');
     const div = document.createElement('div');
-    div.className = `placed-postit postit-${p.color || 'yellow'}`;
+    div.className = `placed-postit postit-${cfg.key}`;
     div.dataset.color = p.color || 'yellow';
     div.style.left = (p.left || 120) + 'px';
     div.style.top = (p.top || 160) + 'px';
+    div.style.backgroundColor = cfg.bg;
+    div.style.borderTop = `14px solid ${cfg.border}`;
+    div.style.color = cfg.text;
     if (p.width) div.style.width = p.width + 'px';
     if (p.height) div.style.height = p.height + 'px';
 
     div.innerHTML = `
         <div class="postit-bar">
-            <span class="postit-title">📌 Post-it</span>
+            <span class="postit-title">📌 ${cfg.name}</span>
             <button class="postit-btn-del" onclick="this.closest('.placed-postit').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Apagar Post-it">✕</button>
         </div>
         <div class="postit-content" contenteditable="true" spellcheck="true">${p.html || 'Nota rápida...'}</div>
@@ -2039,7 +2300,7 @@ function ativarInteracaoPostIt(div) {
 
     div.addEventListener('pointerdown', (e) => {
         if (e.target.closest('.postit-btn-del, .postit-content')) return;
-        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
         div.classList.add('selected');
         selectedElement = div;
 
@@ -2067,11 +2328,15 @@ function ativarInteracaoPostIt(div) {
 
 function inserirMarcadorPagina(cor = 'urgente', texto = 'Urgente', left = 20, top = 120) {
     cadernoSalvarHistorico();
+    const cfg = getMarkerConfig(cor);
     const div = document.createElement('div');
-    div.className = `placed-page-marker marker-${cor}`;
+    div.className = `placed-page-marker marker-${cfg.key}`;
     div.dataset.color = cor;
     div.style.left = left + 'px';
     div.style.top = top + 'px';
+    div.style.backgroundColor = cfg.bg;
+    div.style.borderLeft = `6px solid ${cfg.border}`;
+    div.style.color = cfg.text;
 
     div.innerHTML = `
         <span class="marker-ribbon">🏷️</span>
@@ -2086,11 +2351,15 @@ function inserirMarcadorPagina(cor = 'urgente', texto = 'Urgente', left = 20, to
 }
 
 function restaurarMarcadorPagina(m) {
+    const cfg = getMarkerConfig(m.color || 'urgente');
     const div = document.createElement('div');
-    div.className = `placed-page-marker marker-${m.color || 'urgente'}`;
+    div.className = `placed-page-marker marker-${cfg.key}`;
     div.dataset.color = m.color || 'urgente';
     div.style.left = (m.left || 20) + 'px';
     div.style.top = (m.top || 120) + 'px';
+    div.style.backgroundColor = cfg.bg;
+    div.style.borderLeft = `6px solid ${cfg.border}`;
+    div.style.color = cfg.text;
 
     div.innerHTML = `
         <span class="marker-ribbon">🏷️</span>
@@ -2107,7 +2376,7 @@ function ativarInteracaoMarcador(div) {
 
     div.addEventListener('pointerdown', (e) => {
         if (e.target.closest('.marker-btn-del')) return;
-        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
         div.classList.add('selected');
         selectedElement = div;
 
@@ -2709,6 +2978,216 @@ window.addEventListener('keydown', (e) => {
 });
 
 // --------------------------------------------------------
+// Gestão de Títulos & Cabeçalhos Estilo Word (Ponto 4)
+// --------------------------------------------------------
+let titleConfig = {
+    font: "'Segoe UI', system-ui, sans-serif",
+    size: '26px',
+    textColor: '#0f172a',
+    bg: 'transparent',
+    borderStyle: 'solid 2px',
+    borderRadius: '8px',
+    borderColor: '#3b82f6'
+};
+
+function setTitleTextColor(el, color) {
+    titleConfig.textColor = color;
+    if (el) {
+        document.querySelectorAll('.title-color-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+    }
+    const picker = document.getElementById('title-text-color-picker');
+    if (picker) picker.value = color.startsWith('#') && color.length === 7 ? color : '#0f172a';
+    atualizarPreviewTitulo();
+}
+
+function setTitleBgColor(el, color) {
+    titleConfig.bg = color;
+    if (el) {
+        document.querySelectorAll('.title-bg-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+    }
+    const picker = document.getElementById('title-bg-color-picker');
+    if (picker && color !== 'transparent') picker.value = color.startsWith('#') && color.length === 7 ? color : '#dbeafe';
+    atualizarPreviewTitulo();
+}
+
+function setTitleBorderColor(el, color) {
+    titleConfig.borderColor = color;
+    if (el) {
+        document.querySelectorAll('.title-border-color-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+    }
+    const picker = document.getElementById('title-border-color-picker');
+    if (picker) picker.value = color.startsWith('#') && color.length === 7 ? color : '#3b82f6';
+    atualizarPreviewTitulo();
+}
+
+function atualizarPreviewTitulo() {
+    const fFam = document.getElementById('title-font-family');
+    const fSize = document.getElementById('title-font-size');
+    const bStyle = document.getElementById('title-border-style');
+    const bRadius = document.getElementById('title-border-radius');
+
+    if (fFam) titleConfig.font = fFam.value;
+    if (fSize) titleConfig.size = fSize.value;
+    if (bStyle) titleConfig.borderStyle = bStyle.value;
+    if (bRadius) titleConfig.borderRadius = bRadius.value;
+
+    const preview = document.getElementById('title-preview-box');
+    if (!preview) return;
+
+    preview.style.fontFamily = titleConfig.font;
+    preview.style.fontSize = Math.min(20, parseInt(titleConfig.size)) + 'px';
+    preview.style.color = titleConfig.textColor;
+    preview.style.backgroundColor = titleConfig.bg;
+    preview.style.borderRadius = titleConfig.borderRadius;
+
+    aplicarEstiloBordaTitulo(preview, titleConfig.borderStyle, titleConfig.borderColor);
+}
+
+function aplicarEstiloBordaTitulo(el, borderStyle, borderColor) {
+    el.style.border = 'none';
+    el.style.borderLeft = 'none';
+    el.style.borderBottom = 'none';
+
+    if (borderStyle === 'none') {
+        el.style.border = 'none';
+    } else if (borderStyle === 'left-bar 6px') {
+        el.style.borderLeft = `6px solid ${borderColor}`;
+    } else if (borderStyle === 'bottom-bar 3px') {
+        el.style.borderBottom = `3px solid ${borderColor}`;
+    } else if (borderStyle === 'dashed 2px') {
+        el.style.border = `2px dashed ${borderColor}`;
+    } else if (borderStyle === 'solid 1px') {
+        el.style.border = `1px solid ${borderColor}`;
+    } else if (borderStyle === 'solid 4px') {
+        el.style.border = `4px solid ${borderColor}`;
+    } else {
+        el.style.border = `2px solid ${borderColor}`;
+    }
+}
+
+function inserirTituloNaFolha(cfg = null, left = 80, top = 100, text = 'Título do Documento') {
+    cadernoSalvarHistorico();
+    const config = cfg ? Object.assign({}, titleConfig, cfg) : Object.assign({}, titleConfig);
+
+    const div = document.createElement('div');
+    div.className = 'placed-title-block';
+    div.style.left = left + 'px';
+    div.style.top = top + 'px';
+    div.dataset.titleConfig = JSON.stringify(config);
+
+    div.style.fontFamily = config.font;
+    div.style.fontSize = config.size;
+    div.style.color = config.textColor;
+    div.style.backgroundColor = config.bg;
+    div.style.borderRadius = config.borderRadius;
+    aplicarEstiloBordaTitulo(div, config.borderStyle, config.borderColor);
+
+    div.innerHTML = `
+        <div class="title-controls-overlay">
+            <button class="ctrl-btn" onclick="event.stopPropagation(); scaleTitleBlock(this, 1.15)" title="Aumentar Fonte">🔍 +</button>
+            <button class="ctrl-btn" onclick="event.stopPropagation(); scaleTitleBlock(this, 0.85)" title="Diminuir Fonte">🔍 -</button>
+            <button class="ctrl-btn" style="color:#f87171;" onclick="event.stopPropagation(); this.closest('.placed-title-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Apagar Título">✕</button>
+        </div>
+        <div class="title-content" contenteditable="true" spellcheck="true" placeholder="Escrever Título...">${text}</div>
+    `;
+
+    ativarInteracaoTitulo(div);
+    placedBlocksContainer.appendChild(div);
+    closeAllDropdowns();
+    salvarNoLocalStorage();
+
+    const cnt = div.querySelector('.title-content');
+    if (cnt) {
+        cnt.focus();
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(cnt);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+    return div;
+}
+
+function scaleTitleBlock(btn, factor) {
+    const block = btn.closest('.placed-title-block');
+    if (!block) return;
+    cadernoSalvarHistorico();
+    const curSize = parseInt(block.style.fontSize) || 26;
+    const newSize = Math.max(12, Math.min(64, Math.round(curSize * factor)));
+    block.style.fontSize = newSize + 'px';
+    salvarNoLocalStorage();
+}
+
+function restaurarTituloBlock(t) {
+    const div = document.createElement('div');
+    div.className = 'placed-title-block';
+    div.style.left = (t.left || 80) + 'px';
+    div.style.top = (t.top || 100) + 'px';
+    const cfg = t.config || titleConfig;
+    div.dataset.titleConfig = JSON.stringify(cfg);
+
+    div.style.fontFamily = cfg.font || titleConfig.font;
+    div.style.fontSize = cfg.size || titleConfig.size;
+    div.style.color = cfg.textColor || titleConfig.textColor;
+    div.style.backgroundColor = cfg.bg || titleConfig.bg;
+    div.style.borderRadius = cfg.borderRadius || titleConfig.borderRadius;
+    aplicarEstiloBordaTitulo(div, cfg.borderStyle || titleConfig.borderStyle, cfg.borderColor || titleConfig.borderColor);
+
+    div.innerHTML = `
+        <div class="title-controls-overlay">
+            <button class="ctrl-btn" onclick="event.stopPropagation(); scaleTitleBlock(this, 1.15)" title="Aumentar Fonte">🔍 +</button>
+            <button class="ctrl-btn" onclick="event.stopPropagation(); scaleTitleBlock(this, 0.85)" title="Diminuir Fonte">🔍 -</button>
+            <button class="ctrl-btn" style="color:#f87171;" onclick="event.stopPropagation(); this.closest('.placed-title-block').remove(); cadernoSalvarHistorico(); salvarNoLocalStorage();" title="Apagar Título">✕</button>
+        </div>
+        <div class="title-content" contenteditable="true" spellcheck="true">${t.html || 'Título'}</div>
+    `;
+
+    ativarInteracaoTitulo(div);
+    placedBlocksContainer.appendChild(div);
+}
+
+function ativarInteracaoTitulo(div) {
+    let isDragging = false, ox = 0, oy = 0;
+
+    div.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.title-controls-overlay') || e.target.classList.contains('title-content')) return;
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedElement = div;
+
+        isDragging = true;
+        const pos = getCoordinates(e);
+        ox = pos.x - (parseFloat(div.style.left) || 0);
+        oy = pos.y - (parseFloat(div.style.top) || 0);
+        e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const pos = getCoordinates(e);
+        div.style.left = Math.max(0, Math.min(A4_WIDTH - 60, pos.x - ox)) + 'px';
+        div.style.top = Math.max(0, Math.min(A4_HEIGHT - 30, pos.y - oy)) + 'px';
+    });
+
+    window.addEventListener('pointerup', () => {
+        if (isDragging) {
+            isDragging = false;
+            salvarNoLocalStorage();
+        }
+    });
+
+    const cnt = div.querySelector('.title-content');
+    if (cnt) {
+        cnt.addEventListener('input', () => {
+            salvarNoLocalStorage();
+        });
+    }
+}
+
+// --------------------------------------------------------
 // Menus e Ferramentas (Toolbar do Mignotes)
 // --------------------------------------------------------
 function setTool(tool) {
@@ -2724,8 +3203,11 @@ function setTool(tool) {
     else if (tool === 'highlighter') toggleDropdown('highlighter-dropdown');
     else closeAllDropdowns();
 
+    // Permite desenhar livremente por cima de circuitos na folha quando em modo de caneta/lápis
+    document.body.classList.toggle('tool-is-drawing', tool === 'pen' || tool === 'pencil' || tool === 'highlighter' || tool === 'eraser');
+
     if (tool !== 'select') {
-        document.querySelectorAll('.text-block, .circuit-placed-block').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.classList.remove('selected'));
         selectedElement = null;
         selectedShapeStroke = null;
         redrawStrokes();
@@ -3113,7 +3595,33 @@ function guardarEstadoAtual() {
             top: parseFloat(b.style.top) || 0,
             scale: parseFloat(b.dataset.scale) || 1,
             rotation: parseInt(b.dataset.rotation) || 0,
-            circuitData: circuitData
+            circuitData: circuitData,
+            caption: b.dataset.caption || b.querySelector('.circuit-caption-box')?.innerHTML || ''
+        });
+    });
+
+    const titles = [];
+    document.querySelectorAll('.placed-title-block').forEach(tb => {
+        const cnt = tb.querySelector('.title-content');
+        let cfg = null;
+        try { if (tb.dataset.titleConfig) cfg = JSON.parse(tb.dataset.titleConfig); } catch(e) {}
+        if (!cfg) {
+            cfg = {
+                font: tb.style.fontFamily,
+                size: tb.style.fontSize,
+                textColor: tb.style.color,
+                bg: tb.style.backgroundColor,
+                borderRadius: tb.style.borderRadius,
+                borderStyle: 'solid 2px',
+                borderColor: '#3b82f6'
+            };
+        }
+        cfg.size = tb.style.fontSize || cfg.size;
+        titles.push({
+            left: parseFloat(tb.style.left) || 0,
+            top: parseFloat(tb.style.top) || 0,
+            html: cnt ? cnt.innerHTML : 'Título',
+            config: cfg
         });
     });
 
@@ -3167,6 +3675,7 @@ function guardarEstadoAtual() {
         templateIdx: templateIdx ?? 0,
         blocks: blocks,
         circuits: circuits,
+        titles: titles,
         postits: postits,
         markers: markers,
         labels: labels,
@@ -3189,7 +3698,7 @@ function carregarPagina(cad, tab, pageIdx = 0) {
     const page = tabData.pages[pageIdx];
 
     // Limpar elementos visuais da folha anterior
-    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.remove());
+    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => b.remove());
 
     templateIdx = page.templateIdx ?? 0;
     currentStrokes = JSON.parse(JSON.stringify(page.strokes || []));
@@ -3199,9 +3708,10 @@ function carregarPagina(cad, tab, pageIdx = 0) {
     });
 
     (page.circuits || []).forEach(c => {
-        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData);
+        criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale || 1, c.rotation || 0, c.circuitData, c.caption || '');
     });
 
+    (page.titles || []).forEach(t => restaurarTituloBlock(t));
     (page.postits || []).forEach(p => restaurarPostIt(p));
     (page.markers || []).forEach(m => restaurarMarcadorPagina(m));
     (page.labels || []).forEach(l => restaurarEtiquetaCard(l));
@@ -6286,23 +6796,28 @@ function inserirCircuitoNaNota() {
         maxY = Math.max(maxY, w.y1, w.y2);
     });
     ccState.parts.forEach(p => {
-        const h = p.size / 2;
-        minX = Math.min(minX, p.x - h - 16);
-        minY = Math.min(minY, p.y - h - 25);
-        maxX = Math.max(maxX, p.x + h + 30);
-        maxY = Math.max(maxY, p.y + h + 25);
+        const h = (p.size || 50) / 2;
+        minX = Math.min(minX, p.x - h - 4);
+        minY = Math.min(minY, p.y - h - 12);
+        maxX = Math.max(maxX, p.x + h + 20);
+        maxY = Math.max(maxY, p.y + h + 14);
     });
     (ccState.annotations || []).forEach(ann => {
-        minX = Math.min(minX, ann.x - 10);
-        minY = Math.min(minY, ann.y - 20);
-        maxX = Math.max(maxX, ann.x + 120);
-        maxY = Math.max(maxY, ann.y + 20);
+        if (!ann || !ann.text || !ann.text.trim()) return;
+        const estLen = Math.min(160, Math.max(20, ann.text.length * 8));
+        minX = Math.min(minX, ann.x - 4);
+        minY = Math.min(minY, ann.y - 14);
+        maxX = Math.max(maxX, ann.x + estLen);
+        maxY = Math.max(maxY, ann.y + 14);
     });
 
-    const pad = 16;
+    if (minX === Infinity) { minX = 0; maxX = 100; minY = 0; maxY = 80; }
+
+    // Caixa compacta perfeitamente ajustada ao circuito (Ponto 3)
+    const pad = 6;
     minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-    const width = Math.max(100, maxX - minX);
-    const height = Math.max(80, maxY - minY);
+    const width = Math.max(24, Math.round(maxX - minX));
+    const height = Math.max(24, Math.round(maxY - minY));
 
     const svgClone = document.createElementNS(CC_NS, 'svg');
     svgClone.setAttribute('width', width);
@@ -6350,6 +6865,9 @@ function inserirCircuitoNaNota() {
 window.addEventListener('DOMContentLoaded', () => {
     carregarDoLocalStorage();
     carregarCadernosIniciais();
+    setPressureSensitivity(isPressureEnabled);
+    atualizarPreviewTitulo();
+
     const tabData = getTabData(activeNotebook, activeTab);
     const initialPage = tabData.pages[tabData.currentPage || 0];
     if (initialPage) {
@@ -6359,8 +6877,9 @@ window.addEventListener('DOMContentLoaded', () => {
             criarBlocoTexto(b.text, b.left, b.top, b.fontSize, b.rotation);
         });
         (initialPage.circuits || []).forEach(c => {
-            criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale, c.rotation, c.circuitData);
+            criarBlocoCircuitoNaFolha(c.svg, c.left, c.top, c.scale, c.rotation, c.circuitData, c.caption || '');
         });
+        (initialPage.titles || []).forEach(t => restaurarTituloBlock(t));
         (initialPage.postits || []).forEach(p => restaurarPostIt(p));
         (initialPage.markers || []).forEach(m => restaurarMarcadorPagina(m));
         (initialPage.labels || []).forEach(l => restaurarEtiquetaCard(l));

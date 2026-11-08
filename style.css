@@ -1905,7 +1905,9 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
     border-radius: 4px 4px 14px 4px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #1e293b;
+    background: #fef08a;
+    border-top: 14px solid #facc15;
+    color: #713f12;
     z-index: 25;
     user-select: text;
     pointer-events: auto;
@@ -1962,28 +1964,28 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
     background: rgba(239, 68, 68, 0.2);
 }
 
-/* Cores Realistas e Vivas de Post-it */
-.placed-postit.postit-yellow {
+/* Cores Realistas e Vivas de Post-it (suporta tanto classes como data-color) */
+.placed-postit.postit-yellow, .placed-postit[data-color="#fef08a"], .placed-postit[data-color="yellow"] {
     background: #fef08a !important;
     color: #713f12 !important;
     border-top: 14px solid #facc15 !important;
 }
-.placed-postit.postit-green {
+.placed-postit.postit-green, .placed-postit[data-color="#bbf7d0"], .placed-postit[data-color="green"] {
     background: #bbf7d0 !important;
     color: #14532d !important;
     border-top: 14px solid #4ade80 !important;
 }
-.placed-postit.postit-blue {
+.placed-postit.postit-blue, .placed-postit[data-color="#bfdbfe"], .placed-postit[data-color="#bae6fd"], .placed-postit[data-color="blue"] {
     background: #bae6fd !important;
     color: #0c4a6e !important;
     border-top: 14px solid #38bdf8 !important;
 }
-.placed-postit.postit-pink {
+.placed-postit.postit-pink, .placed-postit[data-color="#fbcfe8"], .placed-postit[data-color="pink"] {
     background: #fbcfe8 !important;
     color: #831843 !important;
     border-top: 14px solid #f472b6 !important;
 }
-.placed-postit.postit-orange {
+.placed-postit.postit-orange, .placed-postit[data-color="#fed7aa"], .placed-postit[data-color="orange"] {
     background: #fed7aa !important;
     color: #7c2d12 !important;
     border-top: 14px solid #fb923c !important;
@@ -1995,6 +1997,8 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
     padding: 7px 14px;
     font-size: 12px;
     font-weight: 800;
+    background: #ef4444;
+    border-left: 6px solid #b91c1c;
     color: #ffffff !important;
     border-radius: 0 8px 8px 0;
     box-shadow: 2px 5px 15px rgba(0,0,0,0.35);
@@ -2034,17 +2038,25 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
     color: #fff;
 }
 
-.placed-page-marker.marker-urgente {
+.placed-page-marker.marker-urgente, .placed-page-marker[data-color="#ef4444"], .placed-page-marker[data-color="urgente"] {
     background: #ef4444 !important;
     border-left: 6px solid #b91c1c !important;
 }
-.placed-page-marker.marker-importante {
+.placed-page-marker.marker-importante, .placed-page-marker[data-color="#eab308"], .placed-page-marker[data-color="importante"] {
     background: #eab308 !important;
     border-left: 6px solid #a16207 !important;
 }
-.placed-page-marker.marker-formula {
+.placed-page-marker.marker-formula, .placed-page-marker[data-color="#22c55e"], .placed-page-marker[data-color="#2563eb"], .placed-page-marker[data-color="formula"] {
+    background: #16a34a !important;
+    border-left: 6px solid #15803d !important;
+}
+.placed-page-marker.marker-duvida, .placed-page-marker[data-color="#3b82f6"], .placed-page-marker[data-color="#ea580c"], .placed-page-marker[data-color="duvida"] {
     background: #2563eb !important;
     border-left: 6px solid #1d4ed8 !important;
+}
+.placed-page-marker.marker-tarefa, .placed-page-marker[data-color="#a855f7"], .placed-page-marker[data-color="#059669"], .placed-page-marker[data-color="tarefa"] {
+    background: #9333ea !important;
+    border-left: 6px solid #7e22ce !important;
 }
 .placed-page-marker.marker-duvida {
     background: #ea580c !important;
@@ -2263,4 +2275,276 @@ body, button, .tool-btn, .comp-btn, .btn-action, .dropdown-item, .ws-tab-btn {
     font-weight: 700;
     color: #1e293b;
 }
+
+/* Variações de Cores para Templates */
+.placed-template-block.template-horario {
+    border-top: 4px solid #3b82f6;
+}
+.placed-template-block.template-horario .template-header {
+    border-bottom: 2px solid #3b82f6;
+    color: #1d4ed8;
+}
+.placed-template-block.template-exercicios {
+    border-top: 4px solid #22c55e;
+}
+.placed-template-block.template-exercicios .template-header {
+    border-bottom: 2px solid #22c55e;
+    color: #15803d;
+}
+.placed-template-block.template-laboratorio {
+    border-top: 4px solid #ec4899;
+}
+.placed-template-block.template-laboratorio .template-header {
+    border-bottom: 2px solid #ec4899;
+    color: #be185d;
+}
+.placed-template-block.template-planeamento {
+    border-top: 4px solid #f59e0b;
+}
+.placed-template-block.template-planeamento .template-header {
+    border-bottom: 2px solid #f59e0b;
+    color: #b45309;
+}
+.placed-template-block.template-projeto {
+    border-top: 4px solid #8b5cf6;
+}
+.placed-template-block.template-projeto .template-header {
+    border-bottom: 2px solid #8b5cf6;
+    color: #6d28d9;
+}
+
+/* =========================================================
+   CIRCUITO: ESCRITA NA CAIXA & DESENHO LIVRE SOBRE O CIRCUITO
+   ========================================================= */
+body.tool-is-drawing .circuit-placed-block {
+    pointer-events: none !important;
+}
+body.tool-is-drawing .circuit-placed-block * {
+    pointer-events: none !important;
+}
+
+.circuit-caption-box {
+    width: 100%;
+    margin-top: 3px;
+    padding: 3px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1e293b;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px dashed #94a3b8;
+    border-radius: 4px;
+    outline: none;
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+    min-height: 18px;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+.circuit-caption-box:empty::before {
+    content: attr(placeholder);
+    color: #94a3b8;
+    font-style: italic;
+    font-weight: 400;
+}
+.circuit-caption-box:focus {
+    background: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* =========================================================
+   BLOCO DE TÍTULOS & CABEÇALHOS PERSONALIZÁVEIS
+   ========================================================= */
+.placed-title-block {
+    position: absolute;
+    min-width: 120px;
+    min-height: 38px;
+    padding: 8px 16px;
+    cursor: move;
+    z-index: 20;
+    pointer-events: auto;
+    user-select: text;
+    -webkit-user-select: text;
+    display: inline-block;
+    transition: box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+.placed-title-block.selected {
+    outline: 2px dashed #3b82f6 !important;
+    outline-offset: 3px;
+}
+.placed-title-block .title-content {
+    outline: none;
+    display: inline-block;
+    min-width: 60px;
+    line-height: 1.25;
+}
+.placed-title-block .title-controls-overlay {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    background: #111827;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 2px 4px;
+    display: none;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 30;
+}
+.placed-title-block.selected .title-controls-overlay,
+.placed-title-block:hover .title-controls-overlay {
+    display: flex;
+}
+
+/* Painel de Propriedades de Título no Dropdown */
+.title-prop-panel {
+    background: #111827;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px;
+    color: #f8fafc;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    max-height: 480px;
+    overflow-y: auto;
+}
+.prop-subtitle {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin: 8px 0 4px 0;
+    letter-spacing: 0.5px;
+}
+.title-select {
+    background: #1e293b;
+    border: 1px solid #475569;
+    color: #f8fafc;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+}
+.title-select:focus {
+    border-color: #3b82f6;
+}
+.title-color-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.title-color-swatch, .title-bg-swatch, .title-border-color-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s, border-color 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #64748b;
+}
+.title-color-swatch:hover, .title-bg-swatch:hover, .title-border-color-swatch:hover {
+    transform: scale(1.15);
+}
+.title-color-swatch.active, .title-bg-swatch.active, .title-border-color-swatch.active {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 1px #0284c7;
+}
+.title-preview-box {
+    background: #ffffff;
+    color: #0f172a;
+    border: 2px solid #3b82f6;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 10px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    word-break: break-word;
+}
+.btn-insert-title {
+    width: 100%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s, transform 0.1s;
+}
+.btn-insert-title:hover {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    transform: translateY(-1px);
+}
+
+/* Sistema de Pressão (Squid) na Toolbar */
+.pressure-toolbar-group {
+    display: flex;
+    align-items: center;
+    margin: 0 3px;
+}
+.pressure-pill-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+}
+.pressure-pill-label:hover {
+    background: #334155;
+    color: #f8fafc;
+}
+.pressure-pill-label input[type="checkbox"] {
+    accent-color: #3b82f6;
+    cursor: pointer;
+    margin: 0;
+    width: 13px;
+    height: 13px;
+}
+.pressure-checkbox-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #e2e8f0;
+    cursor: pointer;
+}
+.pressure-checkbox-wrap input[type="checkbox"] {
+    accent-color: #3b82f6;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
 
