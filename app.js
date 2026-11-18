@@ -580,23 +580,43 @@ function renderSmoothFreeStroke(ctx, stroke) {
             continue;
         }
 
-        // Interpolação Spline com Curvas Quadráticas de Ponto Médio
-        ctx.beginPath();
-        ctx.moveTo(seg[0].x, seg[0].y);
+        // Interpolação Spline com Curvas Quadráticas de Ponto Médio e Largura Variável Real (Estilo Squid)
+        let pPrev = seg[0];
+        let pCurr = seg[1];
+        let midPrevX = (pPrev.x + pCurr.x) / 2;
+        let midPrevY = (pPrev.y + pCurr.y) / 2;
 
+        // Troço inicial: do ponto p0 até ao primeiro ponto médio
+        ctx.lineWidth = pPrev.width || stroke.size;
+        ctx.beginPath();
+        ctx.moveTo(pPrev.x, pPrev.y);
+        ctx.lineTo(midPrevX, midPrevY);
+        ctx.stroke();
+
+        // Troços intermédios: de ponto médio a ponto médio passando por cada ponto de controlo
         for (let i = 1; i < seg.length - 1; i++) {
-            const curr = seg[i];
-            const next = seg[i + 1];
-            const midX = (curr.x + next.x) / 2;
-            const midY = (curr.y + next.y) / 2;
-            ctx.lineWidth = curr.width || stroke.size;
-            ctx.quadraticCurveTo(curr.x, curr.y, midX, midY);
+            pCurr = seg[i];
+            const pNext = seg[i + 1];
+            const midNextX = (pCurr.x + pNext.x) / 2;
+            const midNextY = (pCurr.y + pNext.y) / 2;
+
+            ctx.lineWidth = pCurr.width || stroke.size;
+            ctx.beginPath();
+            ctx.moveTo(midPrevX, midPrevY);
+            ctx.quadraticCurveTo(pCurr.x, pCurr.y, midNextX, midNextY);
+            ctx.stroke();
+
+            midPrevX = midNextX;
+            midPrevY = midNextY;
+            pPrev = pCurr;
         }
 
-        const last = seg[seg.length - 1];
-        const prev = seg[seg.length - 2];
-        ctx.lineWidth = last.width || stroke.size;
-        ctx.quadraticCurveTo(prev.x, prev.y, last.x, last.y);
+        // Troço final: do último ponto médio até à ponta final
+        const pLast = seg[seg.length - 1];
+        ctx.lineWidth = pLast.width || stroke.size;
+        ctx.beginPath();
+        ctx.moveTo(midPrevX, midPrevY);
+        ctx.lineTo(pLast.x, pLast.y);
         ctx.stroke();
     }
     ctx.restore();
@@ -727,7 +747,7 @@ function eraseTotal(px, py, radius) {
 
 function handleEraser(x, y) {
     if (eraserMode === 'box') {
-        eraseBox(x, y, 68, 48);
+        eraseBox(x, y);
         return;
     }
     const rad = currentSize * 4;
@@ -742,8 +762,14 @@ function handleEraser(x, y) {
 
 // --------------------------------------------------------
 // Eventos do Canvas Principal (Mignotes)
-// Suporte total a Stylus (escrita fina) e Gestos Táteis com Dedos (Pan e Pinch-to-zoom sem riscos)
+// Rejeição Rigorosa de Palma, 1 Dedo = Apagador Quadrado (Squid), 2 Dedos = Pan/Zoom, Stylus = Escrita
 // --------------------------------------------------------
+let isPenDrawing = false;
+let activePenPointerId = null;
+let lastPenInteractionTime = 0;
+let isFingerErasing = false;
+let activeFingerPointerId = null;
+let lastFingerCoord = null;
 const activeTouchMap = new Map();
 let touchPinchDist0 = 0;
 let touchPinchZoom0 = 1.0;
@@ -752,29 +778,63 @@ let touchLastMid = null;
 paintCanvas.addEventListener('pointerdown', (e) => {
     closeAllDropdowns();
 
-    // Toque com dedos/palma da mão: reservado para navegação fluida e Apagador de Quadro (Item 8)
-    if (e.pointerType === 'touch') {
-        activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        
-        // Item 8: Ao tocar com 1 dedo com a borracha em modo Apagador de Quadro, apaga o que estiver por baixo
-        if (activeTouchMap.size === 1 && currentTool === 'eraser' && eraserMode === 'box') {
-            isDrawing = true;
-            cadernoSalvarHistorico();
-            const rawTouch = getCoordinates(e);
-            lastCoord = rawTouch;
-            handleEraser(rawTouch.x, rawTouch.y);
-            mostrarApagadorQuadro(e.clientX, e.clientY);
+    // 1. REJEIÇÃO DE PALMA E PRIORIDADE ABSOLUTA DA CANETA STYLUS
+    if (e.pointerType === 'pen') {
+        isPenDrawing = true;
+        activePenPointerId = e.pointerId;
+        lastPenInteractionTime = Date.now();
+        if (isFingerErasing) {
+            isFingerErasing = false;
+            activeFingerPointerId = null;
+            lastFingerCoord = null;
+            esconderApagadorQuadro();
+        }
+        try {
+            paintCanvas.setPointerCapture(e.pointerId);
+        } catch(err) {}
+        e.preventDefault();
+    } else if (e.pointerType === 'touch') {
+        // Se a caneta estiver a escrever ou tiver tocado recentemente: descarta imediatamente o toque da palma
+        if (isPenDrawing || (Date.now() - lastPenInteractionTime < 450)) {
+            e.preventDefault();
             return;
         }
 
+        // Rejeitar toques com grande área de contacto (pegada típica de palma da mão repousada no ecrã)
+        if ((e.width && e.width > 26) || (e.height && e.height > 26)) {
+            e.preventDefault();
+            return;
+        }
+
+        activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        // 1 DEDO NO ECRÃ: É A BORRACHA EM QUADRADO TRACEJADO (ESTILO APP SQUID)
         if (activeTouchMap.size === 1) {
-            touchLastMid = { x: e.clientX, y: e.clientY };
-        } else if (activeTouchMap.size >= 2) {
-            esconderApagadorQuadro();
+            isFingerErasing = true;
+            activeFingerPointerId = e.pointerId;
+            cadernoSalvarHistorico();
+            const rawTouch = getCoordinates(e);
+            lastFingerCoord = rawTouch;
+            eraseBox(rawTouch.x, rawTouch.y);
+            mostrarApagadorQuadro(e.clientX, e.clientY);
+            e.preventDefault();
+            return;
+        }
+
+        // 2 OU MAIS DEDOS: GESTO DE NAVEGAÇÃO / PINCH-TO-ZOOM / PAN
+        if (activeTouchMap.size >= 2) {
+            if (isFingerErasing) {
+                isFingerErasing = false;
+                activeFingerPointerId = null;
+                lastFingerCoord = null;
+                esconderApagadorQuadro();
+            }
             const pts = Array.from(activeTouchMap.values());
             touchPinchDist0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             touchPinchZoom0 = currentZoomScale;
             touchLastMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+            e.preventDefault();
+            return;
         }
         return;
     }
@@ -811,6 +871,7 @@ paintCanvas.addEventListener('pointerdown', (e) => {
         cadernoSalvarHistorico();
         isDrawing = true;
         handleEraser(raw.x, raw.y);
+        if (eraserMode === 'box') mostrarApagadorQuadro(e.clientX, e.clientY);
         return;
     }
 
@@ -863,10 +924,11 @@ paintCanvas.addEventListener('pointerdown', (e) => {
         } else if (isPencil) {
             initialWidth = Math.max(0.8, currentSize * 0.75 * (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse' ? (0.45 + raw.pressure * 1.1) : 1));
         } else {
-            if (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse') {
-                initialWidth = Math.max(1, currentSize * (0.35 + raw.pressure * 1.3));
+            // Caneta Estilo Squid: arranque com conicidade elegante (taper suave na ponta)
+            if (isPressureEnabled && raw.pressure > 0 && raw.pressure !== 0.5 && e.pointerType === 'pen') {
+                initialWidth = Math.max(1, currentSize * (0.35 + Math.pow(raw.pressure, 1.1) * 1.25));
             } else {
-                initialWidth = currentSize;
+                initialWidth = Math.max(1, currentSize * 0.42);
             }
         }
 
@@ -883,8 +945,26 @@ paintCanvas.addEventListener('pointerdown', (e) => {
 });
 
 paintCanvas.addEventListener('pointermove', (e) => {
-    // Toque com os dedos: nunca desenha, navegação tátil é delegada ao window
-    if (e.pointerType === 'touch') return;
+    // REJEIÇÃO DE PALMA E APAGADOR COM 1 DEDO (ESTILO SQUID)
+    if (e.pointerType === 'touch') {
+        if (isPenDrawing || (Date.now() - lastPenInteractionTime < 450)) {
+            e.preventDefault();
+            return;
+        }
+        if (isFingerErasing && e.pointerId === activeFingerPointerId) {
+            mostrarApagadorQuadro(e.clientX, e.clientY);
+            const rawTouch = getCoordinates(e);
+            eraseBox(rawTouch.x, rawTouch.y, null, null, lastFingerCoord);
+            lastFingerCoord = rawTouch;
+            e.preventDefault();
+            return;
+        }
+        return;
+    }
+
+    if (e.pointerType === 'pen') {
+        lastPenInteractionTime = Date.now();
+    }
 
     const raw = getCoordinates(e);
 
@@ -932,27 +1012,33 @@ paintCanvas.addEventListener('pointermove', (e) => {
             const isHigh = activeStroke.isHighlighter || (activeStroke.tool === 'highlighter');
             const isPencil = (activeStroke.tool === 'pencil');
 
-            let ptWidth = activeStroke.size;
+            let targetWidth = activeStroke.size;
             if (isHigh) {
-                ptWidth = Math.max(14, activeStroke.size * 3.5);
+                targetWidth = Math.max(14, activeStroke.size * 3.5);
             } else if (isPencil) {
                 if (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse') {
-                    ptWidth = Math.max(0.8, activeStroke.size * 0.75 * (0.45 + raw.pressure * 1.1));
+                    targetWidth = Math.max(0.8, activeStroke.size * 0.75 * (0.45 + raw.pressure * 1.1));
                 } else {
-                    ptWidth = Math.max(0.8, activeStroke.size * 0.75);
+                    targetWidth = Math.max(0.8, activeStroke.size * 0.75);
                 }
             } else {
-                // Caneta de alta precisão com suporte dinâmico a pressão e velocidade
-                if (isPressureEnabled && raw.pressure > 0 && e.pointerType !== 'mouse') {
-                    ptWidth = Math.max(1, activeStroke.size * (0.35 + raw.pressure * 1.3));
+                // Caneta Caligráfica Estilo App Squid
+                if (isPressureEnabled && raw.pressure > 0 && raw.pressure !== 0.5 && e.pointerType === 'pen') {
+                    targetWidth = Math.max(1, activeStroke.size * (0.35 + Math.pow(raw.pressure, 1.1) * 1.25));
                 } else {
                     const dt = Math.max(1, Date.now() - (prevPt.time || Date.now()));
                     const dist = Math.hypot(raw.x - prevPt.x, raw.y - prevPt.y);
-                    const speed = dist / dt;
-                    const speedFactor = Math.max(0.65, Math.min(1.25, 1.0 - (speed * 0.08)));
-                    ptWidth = Math.max(1, activeStroke.size * speedFactor);
+                    const speed = dist / dt; // pixels por milissegundo
+                    const speedFactor = 0.50 + (0.75 / (1.0 + Math.pow(speed * 0.85, 2)));
+                    targetWidth = Math.max(1, activeStroke.size * speedFactor);
+                }
+                if (lastSeg.length === 1) {
+                    targetWidth = Math.min(targetWidth, activeStroke.size * 0.65);
                 }
             }
+
+            // Suavização exponencial para evitar degraus na espessura
+            const ptWidth = (prevPt.width * 0.62) + (targetWidth * 0.38);
 
             const newPt = { x: raw.x, y: raw.y, pressure: raw.pressure, width: ptWidth, time: Date.now() };
             lastSeg.push(newPt);
@@ -1032,15 +1118,19 @@ paintCanvas.addEventListener('pointermove', (e) => {
     }
 });
 
-// Manipulação Global de Gestos Táteis (1 Dedo = Pan Livre / 2 Dedos = Pinch-to-Zoom Contínuo)
+// Manipulação Global de Gestos Táteis (1 Dedo fora da folha = Pan / 2 Dedos = Pinch-to-Zoom e Pan)
 const workspaceElement = document.getElementById('workspace');
 if (workspaceElement) {
     workspaceElement.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'touch') {
+            if (isPenDrawing || (Date.now() - lastPenInteractionTime < 450)) return;
             activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
-            if (activeTouchMap.size === 1) {
-                touchLastMid = { x: e.clientX, y: e.clientY };
-            } else if (activeTouchMap.size >= 2) {
+            if (e.target === workspaceElement) {
+                if (activeTouchMap.size === 1) {
+                    touchLastMid = { x: e.clientX, y: e.clientY };
+                }
+            }
+            if (activeTouchMap.size >= 2) {
                 const pts = Array.from(activeTouchMap.values());
                 touchPinchDist0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
                 touchPinchZoom0 = currentZoomScale;
@@ -1055,19 +1145,40 @@ window.addEventListener('pointermove', (e) => {
         if (!activeTouchMap.has(e.pointerId)) return;
         activeTouchMap.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-        if (activeTouchMap.size === 1) {
-            // 1 dedo: arrastar a folha para os lados e para cima/baixo livremente (Pan livre na vertical e horizontal)
+        // Rejeição total de palma se a caneta stylus estiver ativa ou escreveu recentemente
+        if (isPenDrawing || (Date.now() - lastPenInteractionTime < 450)) {
+            return;
+        }
+
+        // 1 Dedo como Borracha em Quadrado Tracejado
+        if (isFingerErasing && e.pointerId === activeFingerPointerId) {
+            mostrarApagadorQuadro(e.clientX, e.clientY);
+            const rawTouch = getCoordinates(e);
+            eraseBox(rawTouch.x, rawTouch.y, null, null, lastFingerCoord);
+            lastFingerCoord = rawTouch;
+            return;
+        }
+
+        // Pan pelo workspace quando o toque começou fora da folha
+        if (activeTouchMap.size === 1 && !isFingerErasing && touchLastMid) {
             const currentPt = activeTouchMap.get(e.pointerId);
-            if (touchLastMid) {
-                const dx = currentPt.x - touchLastMid.x;
-                const dy = currentPt.y - touchLastMid.y;
-                panX += dx;
-                panY += dy;
-                atualizarTransformFolha();
-            }
+            const dx = currentPt.x - touchLastMid.x;
+            const dy = currentPt.y - touchLastMid.y;
+            panX += dx;
+            panY += dy;
+            atualizarTransformFolha();
             touchLastMid = { x: currentPt.x, y: currentPt.y };
-        } else if (activeTouchMap.size >= 2) {
-            // 2 dedos: pinch-to-zoom contínuo (ampliar e reduzir a folha) + deslocamento conjunto
+            return;
+        }
+
+        // 2 Dedos: Pinch-to-zoom contínuo e Pan da folha
+        if (activeTouchMap.size >= 2) {
+            if (isFingerErasing) {
+                isFingerErasing = false;
+                activeFingerPointerId = null;
+                lastFingerCoord = null;
+                esconderApagadorQuadro();
+            }
             const pts = Array.from(activeTouchMap.values());
             const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
             const currentMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
@@ -1092,8 +1203,23 @@ window.addEventListener('pointermove', (e) => {
 });
 
 window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'pen') {
+        isPenDrawing = false;
+        activePenPointerId = null;
+        lastPenInteractionTime = Date.now();
+        try {
+            paintCanvas.releasePointerCapture(e.pointerId);
+        } catch(err) {}
+    }
+
     if (e.pointerType === 'touch') {
         activeTouchMap.delete(e.pointerId);
+        if (e.pointerId === activeFingerPointerId || activeTouchMap.size === 0) {
+            isFingerErasing = false;
+            activeFingerPointerId = null;
+            lastFingerCoord = null;
+            esconderApagadorQuadro();
+        }
         if (activeTouchMap.size === 1) {
             const remaining = Array.from(activeTouchMap.values())[0];
             touchLastMid = { x: remaining.x, y: remaining.y };
@@ -1191,8 +1317,22 @@ window.addEventListener('pointerup', (e) => {
 });
 
 window.addEventListener('pointercancel', (e) => {
+    if (e.pointerType === 'pen') {
+        isPenDrawing = false;
+        activePenPointerId = null;
+        lastPenInteractionTime = Date.now();
+        try {
+            paintCanvas.releasePointerCapture(e.pointerId);
+        } catch(err) {}
+    }
     if (e.pointerType === 'touch') {
         activeTouchMap.delete(e.pointerId);
+        if (e.pointerId === activeFingerPointerId || activeTouchMap.size === 0) {
+            isFingerErasing = false;
+            activeFingerPointerId = null;
+            lastFingerCoord = null;
+            esconderApagadorQuadro();
+        }
         if (activeTouchMap.size === 0) {
             touchLastMid = null;
             touchPinchDist0 = 0;
@@ -3356,45 +3496,109 @@ function esconderApagadorQuadro() {
     if (el) el.style.display = 'none';
 }
 
-// Apagador de Quadro (Quadrado Picotado - Item 8)
-function eraseBox(px, py, boxW = 68, boxH = 48) {
-    const minX = px - boxW / 2;
-    const maxX = px + boxW / 2;
-    const minY = py - boxH / 2;
-    const maxY = py + boxH / 2;
+// Teste de intersecção precisa entre segmento de reta e caixa AABB
+function segmentIntersectsAABB(x0, y0, x1, y1, minX, maxX, minY, maxY) {
+    if ((x0 >= minX && x0 <= maxX && y0 >= minY && y0 <= maxY) ||
+        (x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY)) {
+        return true;
+    }
+    if (Math.max(x0, x1) < minX || Math.min(x0, x1) > maxX ||
+        Math.max(y0, y1) < minY || Math.min(y0, y1) > maxY) {
+        return false;
+    }
+    function ccw(ax, ay, bx, by, cx, cy) {
+        return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax);
+    }
+    function intersect(ax, ay, bx, by, cx, cy, dx, dy) {
+        return (ccw(ax,ay,cx,cy,dx,dy) !== ccw(bx,by,cx,cy,dx,dy)) &&
+               (ccw(ax,ay,bx,by,cx,cy) !== ccw(ax,ay,bx,by,dx,dy));
+    }
+    return intersect(x0, y0, x1, y1, minX, minY, maxX, minY) ||
+           intersect(x0, y0, x1, y1, maxX, minY, maxX, maxY) ||
+           intersect(x0, y0, x1, y1, maxX, maxY, minX, maxY) ||
+           intersect(x0, y0, x1, y1, minX, maxY, minX, minY);
+}
+
+// Borracha em Quadrado Tracejado (Estilo App Squid - Apaga tudo por onde passa)
+function eraseBox(px, py, boxW = null, boxH = null, prevCoord = null) {
+    const rect = paintCanvas.getBoundingClientRect();
+    const scaleX = paintCanvas.width / (rect.width || 1);
+    const scaleY = paintCanvas.height / (rect.height || 1);
+    
+    // Dimensão real da caixa de 52x52px projetada no canvas
+    const actualW = (boxW !== null ? boxW : 52 * scaleX);
+    const actualH = (boxH !== null ? boxH : 52 * scaleY);
+
+    // Lista de posições a verificar (interpolação se o dedo/borracha se moveu rapidamente)
+    const pointsToCheck = [{ x: px, y: py }];
+    if (prevCoord && (prevCoord.x !== px || prevCoord.y !== py)) {
+        const dist = Math.hypot(px - prevCoord.x, py - prevCoord.y);
+        const steps = Math.min(8, Math.ceil(dist / (actualW * 0.4)));
+        for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            pointsToCheck.push({
+                x: prevCoord.x + (px - prevCoord.x) * t,
+                y: prevCoord.y + (py - prevCoord.y) * t
+            });
+        }
+    }
 
     let initialCount = currentStrokes.length;
-    currentStrokes = currentStrokes.filter(s => {
-        if (s.type === 'shape') {
-            const sMinX = Math.min(s.x0, s.x1);
-            const sMaxX = Math.max(s.x0, s.x1);
-            const sMinY = Math.min(s.y0, s.y1);
-            const sMaxY = Math.max(s.y0, s.y1);
-            return (sMaxX < minX || sMinX > maxX || sMaxY < minY || sMinY > maxY);
-        } else if (s.type === 'free' && s.segments) {
-            for (let seg of s.segments) {
-                for (let pt of seg) {
-                    if (pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) {
-                        return false;
+    let anyRemoved = false;
+
+    for (const pt of pointsToCheck) {
+        const minX = pt.x - actualW / 2;
+        const maxX = pt.x + actualW / 2;
+        const minY = pt.y - actualH / 2;
+        const maxY = pt.y + actualH / 2;
+
+        currentStrokes = currentStrokes.filter(s => {
+            if (s.type === 'shape') {
+                const sMinX = Math.min(s.x0, s.x1);
+                const sMaxX = Math.max(s.x0, s.x1);
+                const sMinY = Math.min(s.y0, s.y1);
+                const sMaxY = Math.max(s.y0, s.y1);
+                const overlap = !(sMaxX < minX || sMinX > maxX || sMaxY < minY || sMinY > maxY);
+                if (overlap) anyRemoved = true;
+                return !overlap;
+            } else if (s.type === 'free' && s.segments) {
+                for (let seg of s.segments) {
+                    if (!seg || seg.length === 0) continue;
+                    if (seg.length === 1) {
+                        const p = seg[0];
+                        if (p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY) {
+                            anyRemoved = true;
+                            return false;
+                        }
+                    } else {
+                        for (let k = 0; k < seg.length - 1; k++) {
+                            const p0 = seg[k];
+                            const p1 = seg[k + 1];
+                            if (segmentIntersectsAABB(p0.x, p0.y, p1.x, p1.y, minX, maxX, minY, maxY)) {
+                                anyRemoved = true;
+                                return false;
+                            }
+                        }
                     }
                 }
             }
-        }
-        return true;
-    });
+            return true;
+        });
 
-    // Apagar também elementos colocados se a caixa passar por cima
-    document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => {
-        const left = parseFloat(b.style.left) || 0;
-        const top = parseFloat(b.style.top) || 0;
-        const w = b.offsetWidth || 50;
-        const h = b.offsetHeight || 50;
-        if (!(left + w < minX || left > maxX || top + h < minY || top > maxY)) {
-            b.remove();
-        }
-    });
+        // Apagar também elementos colocados se a caixa passar por cima
+        document.querySelectorAll('.text-block, .circuit-placed-block, .placed-title-block, .placed-postit, .placed-page-marker, .placed-label-card, .placed-template-block').forEach(b => {
+            const left = parseFloat(b.style.left) || 0;
+            const top = parseFloat(b.style.top) || 0;
+            const w = b.offsetWidth || 50;
+            const h = b.offsetHeight || 50;
+            if (!(left + w < minX || left > maxX || top + h < minY || top > maxY)) {
+                b.remove();
+                anyRemoved = true;
+            }
+        });
+    }
 
-    if (currentStrokes.length !== initialCount) {
+    if (anyRemoved || currentStrokes.length !== initialCount) {
         redrawStrokes();
         salvarNoLocalStorage();
     }

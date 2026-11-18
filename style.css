@@ -427,7 +427,7 @@ header {
     justify-content: center;
     align-items: flex-start;
     padding: 70px 30px 60px 30px;
-    touch-action: pan-x pan-y;
+    touch-action: none !important;
     transition: padding 0.2s ease;
 }
 
@@ -648,6 +648,7 @@ canvas {
    (Preto de alto contraste com contorno branco para nunca se perder)
    ========================================================= */
 .paper-wrapper, .a4-paper {
+    touch-action: none !important;
     cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='4' fill='%23000000' stroke='%23ffffff' stroke-width='1.5'/%3E%3Cline x1='12' y1='2' x2='12' y2='22' stroke='%23000000' stroke-width='1.5'/%3E%3Cline x1='2' y1='12' x2='22' y2='12' stroke='%23000000' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair !important;
 }
 
@@ -2768,17 +2769,17 @@ body.sidebar-is-collapsed .toolbar,
     background: rgba(56, 189, 248, 0.15);
 }
 
-/* Item 8: Apagador de Quadro (Quadrado Picotado) */
+/* Borracha em Quadrado Tracejado (Estilo App Squid) */
 .chalkboard-eraser-box {
-    position: absolute;
-    width: 68px;
-    height: 48px;
-    border: 2px dashed #f59e0b;
-    background: rgba(245, 158, 11, 0.22);
-    border-radius: 6px;
+    position: fixed;
+    width: 52px;
+    height: 52px;
+    border: 1.5px dashed #ea580c;
+    background: rgba(234, 88, 12, 0.08);
+    border-radius: 3px;
     pointer-events: none;
-    z-index: 9999;
-    box-shadow: 0 0 12px rgba(245, 158, 11, 0.45), inset 0 0 8px rgba(245, 158, 11, 0.25);
+    z-index: 999999;
+    box-shadow: 0 0 4px rgba(234, 88, 12, 0.25);
     display: none;
     transform: translate(-50%, -50%);
 }
