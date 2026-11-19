@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.4">
+    <link rel="stylesheet" href="style.css?v=5.5">
 </head>
 <body>
     <header>
@@ -341,12 +341,19 @@
                         <i data-lucide="eraser"></i>
                         <span class="tool-arrow" onclick="event.stopPropagation(); toggleDropdown('eraser-dropdown');">▼</span>
                     </button>
-                    <div id="eraser-dropdown" class="dropdown-menu">
-                        <button class="dropdown-item active" id="item-eraser-stroke" onclick="setEraserType('stroke')">
-                            <i data-lucide="scissors"></i> Borracha de Linha Completa (Toca e apaga)
+                    <div id="eraser-dropdown" class="dropdown-menu prop-panel">
+                        <div class="prop-title">Tamanho do Quadrado</div>
+                        <div class="slider-wrap" onclick="event.stopPropagation()">
+                            <span style="font-size:12px; color:#cbd5e1; min-width:34px;" id="eraser-size-label">52px</span>
+                            <input type="range" id="eraser-size-slider" min="20" max="120" value="52" oninput="setEraserBoxSize(this.value)" style="flex:1;">
+                            <div class="slider-preview"><div id="eraser-preview-box" style="width:16px; height:16px; border:1.5px dashed #ea580c; background:rgba(234,88,12,0.12); border-radius:2px;"></div></div>
+                        </div>
+                        <div class="prop-title">Modo da Borracha</div>
+                        <button class="dropdown-item active" id="item-eraser-box" onclick="setEraserType('box')">
+                            <i data-lucide="square-dashed"></i> Borracha Quadrada (Predefinida)
                         </button>
-                        <button class="dropdown-item" id="item-eraser-box" onclick="setEraserType('box')">
-                            <i data-lucide="square-dashed"></i> Apagador de Quadro (Retângulo Picotado)
+                        <button class="dropdown-item" id="item-eraser-stroke" onclick="setEraserType('stroke')">
+                            <i data-lucide="scissors"></i> Borracha de Linha Completa (Toca e apaga)
                         </button>
                         <button class="dropdown-item" id="item-eraser-ink" onclick="setEraserType('ink_path')">
                             <i data-lucide="pen-tool"></i> Borracha de Tinta Cirúrgica (Path)
@@ -1307,6 +1314,6 @@
     </div>
 
     <!-- Script Principal com Cache Buster -->
-    <script src="app.js?v=5.4"></script>
+    <script src="app.js?v=5.5"></script>
 </body>
 </html>

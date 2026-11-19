@@ -35,6 +35,10 @@
     --text-secondary: #94a3b8;
 }
 
+html, body {
+    overscroll-behavior: none;
+}
+
 body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg-main);
